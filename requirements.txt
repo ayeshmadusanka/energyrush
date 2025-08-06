@@ -1,0 +1,15 @@
+Flask==3.0.0
+Flask-SQLAlchemy==3.1.1
+pandas>=2.2.0
+numpy>=1.26.0
+scikit-learn>=1.4.0
+matplotlib>=3.8.0
+transformers>=4.38.0
+statsmodels>=0.14.0
+pytz>=2024.1
+Werkzeug>=3.0.0
+google-genai>=1.28.0
+toolbox-core>=0.4.0
+toolbox-langchain>=0.4.0
+mcp>=1.12.3
+markdown>=3.8.2

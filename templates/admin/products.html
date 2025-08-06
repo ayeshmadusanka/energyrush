@@ -1,0 +1,307 @@
+{% extends "admin/base.html" %}
+
+{% block page_title %}Products Management{% endblock %}
+
+{% block content %}
+<!-- Header Section -->
+<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8">
+    <div>
+        <h1 class="text-3xl font-bold text-gray-800 mb-2">Products Management</h1>
+        <p class="text-gray-600">Manage your energy drink inventory and product catalog</p>
+    </div>
+    <a href="{{ url_for('admin_add_product') }}" class="mt-4 sm:mt-0 inline-flex items-center px-6 py-3 gradient-energy text-white font-bold rounded-xl hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-300">
+        <i class="fas fa-plus mr-2"></i>
+        Add New Product
+    </a>
+</div>
+
+{% if products %}
+<!-- Stats Overview -->
+<div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+    <div class="bg-white rounded-xl p-6 shadow-lg border-l-4 border-blue-500">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-sm text-gray-600">Total Products</p>
+                <p class="text-2xl font-bold text-gray-900">{{ products|length }}</p>
+            </div>
+            <i class="fas fa-box text-3xl text-blue-500"></i>
+        </div>
+    </div>
+    
+    <div class="bg-white rounded-xl p-6 shadow-lg border-l-4 border-green-500">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-sm text-gray-600">Well Stocked</p>
+                <p class="text-2xl font-bold text-gray-900">{{ products|selectattr('stock', '>', 10)|list|length }}</p>
+            </div>
+            <i class="fas fa-check-circle text-3xl text-green-500"></i>
+        </div>
+    </div>
+    
+    <div class="bg-white rounded-xl p-6 shadow-lg border-l-4 border-yellow-500">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-sm text-gray-600">Low Stock</p>
+                <p class="text-2xl font-bold text-gray-900">{{ products|selectattr('stock', '<=', 10)|selectattr('stock', '>', 0)|list|length }}</p>
+            </div>
+            <i class="fas fa-exclamation-triangle text-3xl text-yellow-500"></i>
+        </div>
+    </div>
+    
+    <div class="bg-white rounded-xl p-6 shadow-lg border-l-4 border-red-500">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-sm text-gray-600">Out of Stock</p>
+                <p class="text-2xl font-bold text-gray-900">{{ products|selectattr('stock', '==', 0)|list|length }}</p>
+            </div>
+            <i class="fas fa-times-circle text-3xl text-red-500"></i>
+        </div>
+    </div>
+</div>
+
+<!-- Products Grid -->
+<div class="bg-white rounded-2xl shadow-lg overflow-hidden">
+    <div class="px-6 py-4 bg-gradient-to-r from-gray-50 to-white border-b border-gray-200">
+        <div class="flex items-center justify-between">
+            <h2 class="text-xl font-bold text-gray-800">
+                <i class="fas fa-inventory text-energy-primary mr-2"></i>
+                All Products ({{ products|length }})
+            </h2>
+            <div class="flex items-center space-x-3">
+                <button class="px-4 py-2 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors">
+                    <i class="fas fa-filter mr-2"></i>Filter
+                </button>
+                <button class="px-4 py-2 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors">
+                    <i class="fas fa-search mr-2"></i>Search
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Desktop Table View -->
+    <div class="hidden lg:block overflow-x-auto">
+        <table class="w-full">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Product</th>
+                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Description</th>
+                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Price</th>
+                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Stock</th>
+                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
+                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200">
+                {% for product in products %}
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="flex items-center">
+                            <div class="w-16 h-16 rounded-xl overflow-hidden bg-gray-100 mr-4 flex-shrink-0">
+                                <img src="{{ product.image_url }}" alt="{{ product.name }}" class="w-full h-full object-cover">
+                            </div>
+                            <div>
+                                <h3 class="text-sm font-bold text-gray-900">{{ product.name }}</h3>
+                                <p class="text-xs text-gray-500">ID: #{{ product.id }}</p>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4">
+                        <div class="max-w-xs">
+                            <p class="text-sm text-gray-600 line-clamp-2">
+                                {{ product.description[:80] }}{% if product.description|length > 80 %}...{% endif %}
+                            </p>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="text-lg font-bold text-green-600">${{ "%.2f"|format(product.price) }}</span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        {% if product.stock <= 0 %}
+                        <span class="px-3 py-1 text-xs font-semibold bg-red-100 text-red-800 rounded-full">
+                            {{ product.stock }} units
+                        </span>
+                        {% elif product.stock < 10 %}
+                        <span class="px-3 py-1 text-xs font-semibold bg-yellow-100 text-yellow-800 rounded-full animate-pulse">
+                            {{ product.stock }} units
+                        </span>
+                        {% else %}
+                        <span class="px-3 py-1 text-xs font-semibold bg-green-100 text-green-800 rounded-full">
+                            {{ product.stock }} units
+                        </span>
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        {% if product.stock > 0 %}
+                        <span class="px-3 py-1 text-xs font-semibold bg-green-100 text-green-800 rounded-full">
+                            <i class="fas fa-check-circle mr-1"></i> In Stock
+                        </span>
+                        {% else %}
+                        <span class="px-3 py-1 text-xs font-semibold bg-red-100 text-red-800 rounded-full">
+                            <i class="fas fa-times-circle mr-1"></i> Out of Stock
+                        </span>
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="flex items-center space-x-2">
+                            <a href="{{ url_for('admin_edit_product', id=product.id) }}" 
+                               class="w-8 h-8 bg-blue-100 hover:bg-blue-200 text-blue-600 rounded-lg flex items-center justify-center transition-colors"
+                               title="Edit Product">
+                                <i class="fas fa-edit text-sm"></i>
+                            </a>
+                            <a href="{{ url_for('admin_delete_product', id=product.id) }}" 
+                               class="w-8 h-8 bg-red-100 hover:bg-red-200 text-red-600 rounded-lg flex items-center justify-center transition-colors"
+                               title="Delete Product"
+                               onclick="return confirm('Are you sure you want to delete this product?')">
+                                <i class="fas fa-trash text-sm"></i>
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    <!-- Mobile Card View -->
+    <div class="lg:hidden p-4 space-y-4">
+        {% for product in products %}
+        <div class="bg-gray-50 rounded-xl p-4 border border-gray-200">
+            <div class="flex items-start space-x-4">
+                <div class="w-20 h-20 rounded-xl overflow-hidden bg-gray-100 flex-shrink-0">
+                    <img src="{{ product.image_url }}" alt="{{ product.name }}" class="w-full h-full object-cover">
+                </div>
+                <div class="flex-1 min-w-0">
+                    <h3 class="text-lg font-bold text-gray-900 mb-1">{{ product.name }}</h3>
+                    <p class="text-sm text-gray-600 mb-2 line-clamp-2">{{ product.description }}</p>
+                    <div class="flex items-center justify-between">
+                        <span class="text-xl font-bold text-green-600">${{ "%.2f"|format(product.price) }}</span>
+                        {% if product.stock > 0 %}
+                        <span class="px-2 py-1 text-xs font-semibold bg-green-100 text-green-800 rounded-full">
+                            {{ product.stock }} units
+                        </span>
+                        {% else %}
+                        <span class="px-2 py-1 text-xs font-semibold bg-red-100 text-red-800 rounded-full">
+                            Out of Stock
+                        </span>
+                        {% endif %}
+                    </div>
+                    <div class="flex items-center space-x-2 mt-3">
+                        <a href="{{ url_for('admin_edit_product', id=product.id) }}" 
+                           class="flex-1 px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-semibold rounded-lg text-center transition-colors">
+                            Edit
+                        </a>
+                        <a href="{{ url_for('admin_delete_product', id=product.id) }}" 
+                           class="flex-1 px-3 py-2 bg-red-500 hover:bg-red-600 text-white text-sm font-semibold rounded-lg text-center transition-colors"
+                           onclick="return confirm('Are you sure you want to delete this product?')">
+                            Delete
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Additional Stats -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
+    <div class="bg-white rounded-2xl shadow-lg p-6">
+        <div class="flex items-center mb-4">
+            <div class="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center mr-4">
+                <i class="fas fa-chart-pie text-blue-600 text-xl"></i>
+            </div>
+            <h3 class="text-xl font-bold text-gray-800">Stock Overview</h3>
+        </div>
+        <div class="space-y-3">
+            <div class="flex items-center justify-between">
+                <span class="text-gray-600">Well Stocked (>10 units)</span>
+                <span class="px-3 py-1 bg-green-100 text-green-800 font-semibold rounded-full">
+                    {{ products|selectattr('stock', '>', 10)|list|length }}
+                </span>
+            </div>
+            <div class="flex items-center justify-between">
+                <span class="text-gray-600">Low Stock (1-10 units)</span>
+                <span class="px-3 py-1 bg-yellow-100 text-yellow-800 font-semibold rounded-full">
+                    {{ products|selectattr('stock', '<=', 10)|selectattr('stock', '>', 0)|list|length }}
+                </span>
+            </div>
+            <div class="flex items-center justify-between">
+                <span class="text-gray-600">Out of Stock</span>
+                <span class="px-3 py-1 bg-red-100 text-red-800 font-semibold rounded-full">
+                    {{ products|selectattr('stock', '==', 0)|list|length }}
+                </span>
+            </div>
+        </div>
+    </div>
+    
+    <div class="bg-white rounded-2xl shadow-lg p-6">
+        <div class="flex items-center mb-4">
+            <div class="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center mr-4">
+                <i class="fas fa-dollar-sign text-green-600 text-xl"></i>
+            </div>
+            <h3 class="text-xl font-bold text-gray-800">Price Analysis</h3>
+        </div>
+        {% set prices = products|map(attribute='price')|list %}
+        {% if prices %}
+        <div class="space-y-3">
+            <div class="flex items-center justify-between">
+                <span class="text-gray-600">Minimum Price</span>
+                <span class="text-lg font-bold text-gray-900">${{ "%.2f"|format(prices|min) }}</span>
+            </div>
+            <div class="flex items-center justify-between">
+                <span class="text-gray-600">Maximum Price</span>
+                <span class="text-lg font-bold text-gray-900">${{ "%.2f"|format(prices|max) }}</span>
+            </div>
+            <div class="flex items-center justify-between">
+                <span class="text-gray-600">Average Price</span>
+                <span class="text-lg font-bold text-green-600">${{ "%.2f"|format(prices|sum / prices|length) }}</span>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% else %}
+<!-- Empty State -->
+<div class="bg-white rounded-2xl shadow-lg p-12 text-center">
+    <div class="w-32 h-32 mx-auto mb-6 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full flex items-center justify-center">
+        <i class="fas fa-box-open text-6xl text-gray-400"></i>
+    </div>
+    <h2 class="text-3xl font-bold text-gray-800 mb-4">No Products Found</h2>
+    <p class="text-gray-600 mb-8 max-w-md mx-auto">
+        Start building your energy drink catalog by adding your first product. Create compelling product listings to attract customers.
+    </p>
+    <a href="{{ url_for('admin_add_product') }}" class="inline-flex items-center px-8 py-4 gradient-energy text-white font-bold rounded-xl hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-300">
+        <i class="fas fa-plus mr-2"></i>
+        Add Your First Product
+    </a>
+</div>
+{% endif %}
+
+<style>
+.line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Animate product rows on page load
+    const rows = document.querySelectorAll('tbody tr, .bg-gray-50');
+    rows.forEach((row, index) => {
+        setTimeout(() => {
+            row.style.opacity = '0';
+            row.style.transform = 'translateY(20px)';
+            row.style.transition = 'all 0.5s ease-out';
+            setTimeout(() => {
+                row.style.opacity = '1';
+                row.style.transform = 'translateY(0)';
+            }, 50);
+        }, index * 50);
+    });
+});
+</script>
+{% endblock %}

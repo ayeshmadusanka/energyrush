@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}EnergyRush - Premium Energy Drinks{% endblock %}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'energy-primary': '#6366f1',
+                        'energy-secondary': '#f59e0b',
+                        'energy-accent': '#10b981',
+                        'energy-dark': '#0f172a',
+                    },
+                    animation: {
+                        'float': 'float 6s ease-in-out infinite',
+                        'glow': 'glow 2s ease-in-out infinite',
+                        'pulse-slow': 'pulse 3s ease-in-out infinite',
+                    },
+                    keyframes: {
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0px)' },
+                            '50%': { transform: 'translateY(-20px)' },
+                        },
+                        glow: {
+                            '0%, 100%': { opacity: '1' },
+                            '50%': { opacity: '0.5' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .gradient-energy {
+            background: linear-gradient(135deg, #6366f1 0%, #f59e0b 100%);
+        }
+        .gradient-dark {
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+        }
+        .text-gradient {
+            background: linear-gradient(135deg, #6366f1 0%, #f59e0b 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .glass-effect {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .hover-lift {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .hover-lift:hover {
+            transform: translateY(-4px);
+        }
+    </style>
+</head>
+<body class="font-['Inter'] bg-gray-50">
+    <!-- Modern Navigation Bar -->
+    <nav class="fixed top-0 w-full z-50 bg-white/95 backdrop-blur-md border-b border-gray-100 shadow-sm">
+        <div class="container mx-auto px-4">
+            <div class="flex items-center justify-between h-20">
+                <!-- Logo -->
+                <a href="{{ url_for('index') }}" class="flex items-center space-x-2 group">
+                    <div class="w-10 h-10 gradient-energy rounded-xl flex items-center justify-center transform group-hover:rotate-12 transition-transform duration-300">
+                        <i class="fas fa-bolt text-white text-lg"></i>
+                    </div>
+                    <span class="text-2xl font-black text-gradient">EnergyRush</span>
+                </a>
+                
+                <!-- Desktop Navigation -->
+                <div class="hidden md:flex items-center space-x-1">
+                    <a href="{{ url_for('index') }}" class="px-4 py-2 rounded-xl text-gray-700 hover:text-energy-primary hover:bg-indigo-50 transition-all duration-300 font-medium">
+                        Home
+                    </a>
+                    <a href="{{ url_for('about') }}" class="px-4 py-2 rounded-xl text-gray-700 hover:text-energy-primary hover:bg-indigo-50 transition-all duration-300 font-medium">
+                        About
+                    </a>
+                    <a href="{{ url_for('products') }}" class="px-4 py-2 rounded-xl text-gray-700 hover:text-energy-primary hover:bg-indigo-50 transition-all duration-300 font-medium">
+                        Products
+                    </a>
+                </div>
+                
+                <!-- Timezone Indicator (hidden on small screens) -->
+                <div class="hidden lg:flex items-center space-x-2 text-sm text-gray-600 bg-gray-50 px-3 py-2 rounded-lg">
+                    <i class="fas fa-clock text-energy-primary"></i>
+                    <span class="current-colombo-time font-medium"></span>
+                    <span class="text-xs text-gray-500">({{ timezone_offset }})</span>
+                </div>
+
+                <!-- Cart and Mobile Menu -->
+                <div class="flex items-center space-x-4">
+                    <a href="{{ url_for('cart') }}" class="relative group">
+                        <div class="flex items-center space-x-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-energy-primary to-energy-secondary text-white font-semibold hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-300">
+                            <i class="fas fa-shopping-cart"></i>
+                            <span class="hidden sm:inline">Cart</span>
+                            {% if session.cart and session.cart|length > 0 %}
+                            <span class="absolute -top-2 -right-2 w-6 h-6 bg-energy-accent text-white text-xs rounded-full flex items-center justify-center animate-pulse-slow">
+                                {{ session.cart|length }}
+                            </span>
+                            {% endif %}
+                        </div>
+                    </a>
+                    
+                    <!-- Mobile Menu Button -->
+                    <button onclick="toggleMobileMenu()" class="md:hidden p-2 rounded-lg hover:bg-gray-100 transition-colors">
+                        <svg id="menu-icon" class="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+                        </svg>
+                        <svg id="close-icon" class="w-6 h-6 text-gray-700 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Mobile Menu -->
+            <div id="mobile-menu" class="hidden md:hidden pb-4">
+                <div class="flex flex-col space-y-2 pt-4 border-t border-gray-100">
+                    <a href="{{ url_for('index') }}" class="px-4 py-3 rounded-xl text-gray-700 hover:text-energy-primary hover:bg-indigo-50 transition-all duration-300 font-medium">
+                        Home
+                    </a>
+                    <a href="{{ url_for('about') }}" class="px-4 py-3 rounded-xl text-gray-700 hover:text-energy-primary hover:bg-indigo-50 transition-all duration-300 font-medium">
+                        About
+                    </a>
+                    <a href="{{ url_for('products') }}" class="px-4 py-3 rounded-xl text-gray-700 hover:text-energy-primary hover:bg-indigo-50 transition-all duration-300 font-medium">
+                        Products
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+    
+    <!-- Spacer for fixed navbar -->
+    <div class="h-20"></div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="container mx-auto px-4 mt-4">
+                {% for category, message in messages %}
+                    <div class="relative p-4 rounded-xl {{ 'bg-red-50 border-l-4 border-red-500 text-red-700' if category == 'error' else 'bg-green-50 border-l-4 border-green-500 text-green-700' }} animate-[fadeIn_0.3s_ease-in]">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center space-x-3">
+                                <i class="fas {{ 'fa-exclamation-circle' if category == 'error' else 'fa-check-circle' }} text-xl"></i>
+                                <span class="font-medium">{{ message }}</span>
+                            </div>
+                            <button onclick="this.parentElement.parentElement.remove()" class="text-gray-400 hover:text-gray-600 transition-colors">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+
+    {% block content %}{% endblock %}
+
+    <!-- Modern Footer -->
+    <footer class="gradient-dark text-white mt-20">
+        <div class="container mx-auto px-4 py-16">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+                <!-- Brand Section -->
+                <div class="lg:col-span-2">
+                    <div class="flex items-center space-x-2 mb-4">
+                        <div class="w-12 h-12 bg-gradient-to-r from-energy-primary to-energy-secondary rounded-xl flex items-center justify-center">
+                            <i class="fas fa-bolt text-white text-xl"></i>
+                        </div>
+                        <span class="text-3xl font-black">EnergyRush</span>
+                    </div>
+                    <p class="text-gray-300 text-lg leading-relaxed mb-6">
+                        Premium energy drinks crafted for peak performance and ultimate energy. Fuel your passion, power your dreams.
+                    </p>
+                    <div class="flex space-x-4">
+                        <a href="#" class="w-10 h-10 bg-white/10 rounded-lg flex items-center justify-center hover:bg-energy-primary transition-all duration-300 group">
+                            <i class="fab fa-facebook-f text-white group-hover:scale-110 transition-transform"></i>
+                        </a>
+                        <a href="#" class="w-10 h-10 bg-white/10 rounded-lg flex items-center justify-center hover:bg-energy-primary transition-all duration-300 group">
+                            <i class="fab fa-twitter text-white group-hover:scale-110 transition-transform"></i>
+                        </a>
+                        <a href="#" class="w-10 h-10 bg-white/10 rounded-lg flex items-center justify-center hover:bg-energy-primary transition-all duration-300 group">
+                            <i class="fab fa-instagram text-white group-hover:scale-110 transition-transform"></i>
+                        </a>
+                        <a href="#" class="w-10 h-10 bg-white/10 rounded-lg flex items-center justify-center hover:bg-energy-primary transition-all duration-300 group">
+                            <i class="fab fa-linkedin-in text-white group-hover:scale-110 transition-transform"></i>
+                        </a>
+                    </div>
+                </div>
+                
+                <!-- Quick Links -->
+                <div>
+                    <h3 class="text-xl font-bold mb-4 text-energy-secondary">Quick Links</h3>
+                    <ul class="space-y-3">
+                        <li>
+                            <a href="{{ url_for('index') }}" class="text-gray-300 hover:text-energy-secondary transition-colors duration-300 flex items-center space-x-2">
+                                <span class="text-energy-secondary">→</span>
+                                <span>Home</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ url_for('about') }}" class="text-gray-300 hover:text-energy-secondary transition-colors duration-300 flex items-center space-x-2">
+                                <span class="text-energy-secondary">→</span>
+                                <span>About Us</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ url_for('products') }}" class="text-gray-300 hover:text-energy-secondary transition-colors duration-300 flex items-center space-x-2">
+                                <span class="text-energy-secondary">→</span>
+                                <span>Products</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ url_for('cart') }}" class="text-gray-300 hover:text-energy-secondary transition-colors duration-300 flex items-center space-x-2">
+                                <span class="text-energy-secondary">→</span>
+                                <span>Shopping Cart</span>
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+                
+                <!-- Contact Info -->
+                <div>
+                    <h3 class="text-xl font-bold mb-4 text-energy-secondary">Contact Us</h3>
+                    <ul class="space-y-3 text-gray-300">
+                        <li class="flex items-start space-x-3">
+                            <i class="fas fa-envelope mt-1 text-energy-secondary"></i>
+                            <span>info@energyrush.com</span>
+                        </li>
+                        <li class="flex items-start space-x-3">
+                            <i class="fas fa-phone mt-1 text-energy-secondary"></i>
+                            <span>+1 (555) 123-4567</span>
+                        </li>
+                        <li class="flex items-start space-x-3">
+                            <i class="fas fa-map-marker-alt mt-1 text-energy-secondary"></i>
+                            <span>123 Energy Street<br>Power City, PC 12345</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="border-t border-gray-700 mt-12 pt-8 text-center">
+                <p class="text-gray-400">
+                    &copy; 2024 EnergyRush. All rights reserved. Made with 
+                    <span class="text-red-500 animate-pulse">❤️</span> 
+                    for energy enthusiasts.
+                </p>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        function toggleMobileMenu() {
+            const menu = document.getElementById('mobile-menu');
+            const menuIcon = document.getElementById('menu-icon');
+            const closeIcon = document.getElementById('close-icon');
+            
+            menu.classList.toggle('hidden');
+            menuIcon.classList.toggle('hidden');
+            closeIcon.classList.toggle('hidden');
+        }
+
+        // Timezone utility functions
+        const COLOMBO_TIMEZONE = 'Asia/Colombo';
+        
+        function formatColomboTime(dateString, options = {}) {
+            const date = new Date(dateString);
+            return date.toLocaleString('en-GB', {
+                timeZone: COLOMBO_TIMEZONE,
+                ...options
+            });
+        }
+
+        function formatColomboDate(dateString) {
+            return formatColomboTime(dateString, {
+                year: 'numeric',
+                month: '2-digit', 
+                day: '2-digit'
+            });
+        }
+
+        function formatColomboDateTime(dateString) {
+            return formatColomboTime(dateString, {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: false
+            });
+        }
+
+        function getCurrentColomboTime() {
+            return new Date().toLocaleString('en-GB', {
+                timeZone: COLOMBO_TIMEZONE,
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: false
+            });
+        }
+
+        // Auto-update any elements with timezone classes
+        function updateTimezoneElements() {
+            // Update elements with colombo-time class
+            document.querySelectorAll('.colombo-time').forEach(element => {
+                const originalTime = element.getAttribute('data-original-time');
+                if (originalTime) {
+                    element.textContent = formatColomboDateTime(originalTime);
+                }
+            });
+
+            // Update elements with colombo-date class
+            document.querySelectorAll('.colombo-date').forEach(element => {
+                const originalTime = element.getAttribute('data-original-time');
+                if (originalTime) {
+                    element.textContent = formatColomboDate(originalTime);
+                }
+            });
+
+            // Update current time displays
+            document.querySelectorAll('.current-colombo-time').forEach(element => {
+                element.textContent = getCurrentColomboTime();
+            });
+        }
+
+        // Initialize timezone handling when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            updateTimezoneElements();
+            
+            // Update current time every second if any elements need it
+            if (document.querySelectorAll('.current-colombo-time').length > 0) {
+                setInterval(updateTimezoneElements, 1000);
+            }
+        });
+    </script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

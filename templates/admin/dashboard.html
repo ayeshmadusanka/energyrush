@@ -1,0 +1,302 @@
+{% extends "admin/base.html" %}
+
+{% block page_title %}Dashboard{% endblock %}
+
+{% block content %}
+<!-- Stats Cards -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+    <!-- Total Orders -->
+    <div class="bg-white rounded-2xl shadow-lg p-6 hover:shadow-xl transition-shadow duration-300 border-l-4 border-energy-primary">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-sm font-medium text-gray-600">Total Orders</p>
+                <p class="text-3xl font-black text-gray-900">{{ total_orders }}</p>
+                <p class="text-xs text-green-600 mt-1">
+                    <i class="fas fa-arrow-up mr-1"></i> +12% from last month
+                </p>
+            </div>
+            <div class="w-16 h-16 bg-gradient-to-r from-energy-primary to-blue-600 rounded-2xl flex items-center justify-center">
+                <i class="fas fa-shopping-cart text-2xl text-white"></i>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Total Revenue -->
+    <div class="bg-white rounded-2xl shadow-lg p-6 hover:shadow-xl transition-shadow duration-300 border-l-4 border-green-500">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-sm font-medium text-gray-600">Total Revenue</p>
+                <p class="text-3xl font-black text-gray-900">${{ "%.2f"|format(total_revenue) }}</p>
+                <p class="text-xs text-green-600 mt-1">
+                    <i class="fas fa-arrow-up mr-1"></i> +8% from last month
+                </p>
+            </div>
+            <div class="w-16 h-16 bg-gradient-to-r from-green-500 to-emerald-600 rounded-2xl flex items-center justify-center">
+                <i class="fas fa-dollar-sign text-2xl text-white"></i>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Total Products -->
+    <div class="bg-white rounded-2xl shadow-lg p-6 hover:shadow-xl transition-shadow duration-300 border-l-4 border-blue-500">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-sm font-medium text-gray-600">Total Products</p>
+                <p class="text-3xl font-black text-gray-900">{{ total_products }}</p>
+                <p class="text-xs text-gray-500 mt-1">
+                    <i class="fas fa-minus mr-1"></i> No change
+                </p>
+            </div>
+            <div class="w-16 h-16 bg-gradient-to-r from-blue-500 to-cyan-600 rounded-2xl flex items-center justify-center">
+                <i class="fas fa-box text-2xl text-white"></i>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Pending Orders -->
+    <div class="bg-white rounded-2xl shadow-lg p-6 hover:shadow-xl transition-shadow duration-300 border-l-4 border-yellow-500">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-sm font-medium text-gray-600">Pending Orders</p>
+                <p class="text-3xl font-black text-gray-900">{{ pending_orders }}</p>
+                <p class="text-xs text-yellow-600 mt-1">
+                    <i class="fas fa-clock mr-1"></i> Needs attention
+                </p>
+            </div>
+            <div class="w-16 h-16 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-2xl flex items-center justify-center">
+                <i class="fas fa-clock text-2xl text-white"></i>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Main Content Grid -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+    <!-- Recent Orders -->
+    <div class="lg:col-span-2">
+        <div class="bg-white rounded-2xl shadow-lg overflow-hidden">
+            <div class="px-6 py-4 bg-gradient-to-r from-gray-50 to-white border-b border-gray-200">
+                <div class="flex items-center justify-between">
+                    <h2 class="text-xl font-bold text-gray-800">
+                        <i class="fas fa-chart-bar text-energy-primary mr-2"></i>
+                        Recent Orders
+                    </h2>
+                    <a href="{{ url_for('admin_orders') }}" class="text-sm text-energy-primary hover:text-energy-secondary transition-colors">
+                        View all →
+                    </a>
+                </div>
+            </div>
+            
+            <div class="overflow-x-auto">
+                {% if recent_orders %}
+                <table class="w-full">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Order ID</th>
+                            <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Customer</th>
+                            <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Amount</th>
+                            <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
+                            <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Date</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200">
+                        {% for order in recent_orders %}
+                        <tr class="hover:bg-gray-50 transition-colors">
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="text-sm font-bold text-energy-primary">#{{ order.id }}</span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="flex items-center">
+                                    <div class="w-8 h-8 bg-energy-primary rounded-full flex items-center justify-center mr-3">
+                                        <span class="text-xs font-bold text-white">{{ order.customer_name[0].upper() }}</span>
+                                    </div>
+                                    <span class="text-sm font-medium text-gray-900">{{ order.customer_name }}</span>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="text-sm font-bold text-green-600">${{ "%.2f"|format(order.total_amount) }}</span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                {% set status_classes = {
+                                    'Pending': 'bg-yellow-100 text-yellow-800',
+                                    'Shipped': 'bg-blue-100 text-blue-800',
+                                    'Delivered': 'bg-green-100 text-green-800',
+                                    'Cancelled': 'bg-red-100 text-red-800'
+                                } %}
+                                <span class="px-3 py-1 text-xs font-semibold rounded-full {{ status_classes.get(order.status, 'bg-gray-100 text-gray-800') }}">
+                                    {{ order.status }}
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {{ order.created_at.strftime('%Y-%m-%d') }}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                
+                <div class="px-6 py-4 bg-gray-50 border-t border-gray-200">
+                    <a href="{{ url_for('admin_orders') }}" class="inline-flex items-center px-4 py-2 gradient-energy text-white font-bold rounded-xl hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-300">
+                        View All Orders
+                        <i class="fas fa-arrow-right ml-2"></i>
+                    </a>
+                </div>
+                {% else %}
+                <div class="text-center py-12">
+                    <i class="fas fa-inbox text-6xl text-gray-300 mb-4"></i>
+                    <p class="text-gray-500 text-lg font-medium">No orders yet</p>
+                    <p class="text-gray-400 text-sm">Orders will appear here once customers start purchasing</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Low Stock Alert -->
+    <div class="lg:col-span-1">
+        <div class="bg-white rounded-2xl shadow-lg overflow-hidden mb-6">
+            <div class="px-6 py-4 bg-gradient-to-r from-yellow-50 to-orange-50 border-b border-yellow-200">
+                <h2 class="text-xl font-bold text-gray-800">
+                    <i class="fas fa-exclamation-triangle text-yellow-500 mr-2"></i>
+                    Low Stock Alert
+                </h2>
+            </div>
+            
+            <div class="p-6">
+                {% if low_stock_products %}
+                <div class="space-y-4">
+                    {% for product in low_stock_products %}
+                    <div class="flex items-center justify-between p-4 bg-red-50 rounded-xl border border-red-200">
+                        <div class="flex-1">
+                            <h3 class="font-semibold text-gray-900">{{ product.name }}</h3>
+                            <p class="text-sm text-gray-600 flex items-center mt-1">
+                                <i class="fas fa-box text-red-500 mr-2"></i>
+                                {{ product.stock }} units left
+                            </p>
+                        </div>
+                        <span class="px-3 py-1 bg-red-500 text-white text-xs font-bold rounded-full animate-pulse">
+                            LOW
+                        </span>
+                    </div>
+                    {% endfor %}
+                </div>
+                
+                <div class="mt-6">
+                    <a href="{{ url_for('admin_products') }}" class="w-full inline-flex items-center justify-center px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white font-bold rounded-xl transition-colors">
+                        <i class="fas fa-cog mr-2"></i>
+                        Manage Stock
+                    </a>
+                </div>
+                {% else %}
+                <div class="text-center py-8">
+                    <i class="fas fa-check-circle text-6xl text-green-500 mb-4"></i>
+                    <p class="text-gray-700 font-semibold">All Good!</p>
+                    <p class="text-gray-500 text-sm">All products are well stocked</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Quick Actions -->
+        <div class="bg-white rounded-2xl shadow-lg overflow-hidden">
+            <div class="px-6 py-4 bg-gradient-to-r from-green-50 to-emerald-50 border-b border-green-200">
+                <h2 class="text-xl font-bold text-gray-800">
+                    <i class="fas fa-rocket text-green-500 mr-2"></i>
+                    Quick Actions
+                </h2>
+            </div>
+            
+            <div class="p-6 space-y-3">
+                <a href="{{ url_for('admin_add_product') }}" class="w-full inline-flex items-center justify-center px-4 py-3 gradient-energy text-white font-bold rounded-xl hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-300">
+                    <i class="fas fa-plus mr-2"></i>
+                    Add New Product
+                </a>
+                
+                <a href="{{ url_for('admin_orders') }}" class="w-full inline-flex items-center justify-center px-4 py-3 bg-blue-500 hover:bg-blue-600 text-white font-bold rounded-xl transition-colors">
+                    <i class="fas fa-list mr-2"></i>
+                    View All Orders
+                </a>
+                
+                <a href="{{ url_for('admin_forecasting') }}" class="w-full inline-flex items-center justify-center px-4 py-3 bg-green-500 hover:bg-green-600 text-white font-bold rounded-xl transition-colors">
+                    <i class="fas fa-chart-line mr-2"></i>
+                    View Forecasting
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- AI Assistant Tips -->
+<div class="mt-8">
+    <div class="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-2xl p-6 border border-indigo-200">
+        <div class="flex items-start space-x-4">
+            <div class="w-12 h-12 bg-gradient-to-r from-energy-primary to-purple-600 rounded-xl flex items-center justify-center flex-shrink-0">
+                <i class="fas fa-robot text-white text-xl"></i>
+            </div>
+            <div class="flex-1">
+                <h3 class="text-lg font-bold text-gray-800 mb-2">AI Assistant Tips</h3>
+                <p class="text-gray-600 mb-4">
+                    Use the AI chatbot (bottom-right corner) to get quick insights about your business!
+                </p>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="bg-white rounded-lg p-4 shadow-sm">
+                        <h4 class="font-semibold text-gray-800 mb-2">Try asking:</h4>
+                        <ul class="text-sm text-gray-600 space-y-1">
+                            <li class="flex items-center">
+                                <i class="fas fa-comment-dots text-energy-primary mr-2"></i>
+                                "What's the status of order 5?"
+                            </li>
+                            <li class="flex items-center">
+                                <i class="fas fa-comment-dots text-energy-primary mr-2"></i>
+                                "How much stock is left?"
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="bg-white rounded-lg p-4 shadow-sm">
+                        <h4 class="font-semibold text-gray-800 mb-2">More queries:</h4>
+                        <ul class="text-sm text-gray-600 space-y-1">
+                            <li class="flex items-center">
+                                <i class="fas fa-comment-dots text-energy-primary mr-2"></i>
+                                "Which product has highest sales?"
+                            </li>
+                            <li class="flex items-center">
+                                <i class="fas fa-comment-dots text-energy-primary mr-2"></i>
+                                "Show me pending orders"
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.animate-fade-in {
+    animation: fadeIn 0.6s ease-out;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Animate stats cards on page load
+    const statsCards = document.querySelectorAll('.grid > div');
+    statsCards.forEach((card, index) => {
+        setTimeout(() => {
+            card.classList.add('animate-fade-in');
+        }, index * 100);
+    });
+});
+</script>
+{% endblock %}

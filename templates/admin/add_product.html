@@ -1,0 +1,393 @@
+{% extends "admin/base.html" %}
+
+{% block page_title %}Add New Product{% endblock %}
+
+{% block content %}
+<!-- Header Section -->
+<div class="mb-8">
+    <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between">
+        <div class="mb-4 lg:mb-0">
+            <h1 class="text-3xl font-black text-gray-800 mb-2 flex items-center">
+                <div class="w-10 h-10 bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl flex items-center justify-center mr-3">
+                    <i class="fas fa-plus text-white text-xl"></i>
+                </div>
+                Add New Product
+            </h1>
+            <p class="text-gray-600 text-lg">Create a new energy drink product for your inventory</p>
+        </div>
+        
+        <a href="{{ url_for('admin_products') }}" class="inline-flex items-center px-6 py-3 bg-gray-100 text-gray-700 font-semibold rounded-xl hover:bg-gray-200 transition-all duration-300">
+            <i class="fas fa-arrow-left mr-2"></i>
+            Back to Products
+        </a>
+    </div>
+</div>
+
+<!-- Main Form Section -->
+<div class="grid grid-cols-1 xl:grid-cols-3 gap-8">
+    <!-- Form -->
+    <div class="xl:col-span-2">
+        <div class="bg-white rounded-2xl shadow-lg overflow-hidden">
+            <div class="px-8 py-6 bg-gradient-to-r from-green-50 to-emerald-50 border-b border-green-100">
+                <h2 class="text-xl font-bold text-gray-800 flex items-center">
+                    <i class="fas fa-edit text-green-600 mr-3"></i>
+                    Product Information
+                </h2>
+                <p class="text-gray-600 text-sm mt-1">Fill in the details for your new energy drink product</p>
+            </div>
+            
+            <div class="p-8">
+                <form method="POST" action="{{ url_for('admin_add_product') }}" id="productForm" class="space-y-6">
+                    <!-- Name and Price Row -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="space-y-2">
+                            <label for="name" class="flex items-center text-sm font-semibold text-gray-700">
+                                <i class="fas fa-tag text-blue-600 mr-2"></i>
+                                Product Name
+                                <span class="text-red-500 ml-1">*</span>
+                            </label>
+                            <input type="text" 
+                                   id="name" 
+                                   name="name" 
+                                   required
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200"
+                                   placeholder="e.g., Red Bull Energy Drink">
+                            <div class="text-xs text-gray-500">Enter a descriptive name for your energy drink</div>
+                        </div>
+                        
+                        <div class="space-y-2">
+                            <label for="price" class="flex items-center text-sm font-semibold text-gray-700">
+                                <i class="fas fa-dollar-sign text-green-600 mr-2"></i>
+                                Price (USD)
+                                <span class="text-red-500 ml-1">*</span>
+                            </label>
+                            <div class="relative">
+                                <span class="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-500 font-medium">$</span>
+                                <input type="number" 
+                                       id="price" 
+                                       name="price" 
+                                       step="0.01" 
+                                       min="0.01" 
+                                       required
+                                       class="w-full pl-8 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors duration-200"
+                                       placeholder="0.00">
+                            </div>
+                            <div class="text-xs text-gray-500">Set a competitive price for your product</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Description -->
+                    <div class="space-y-2">
+                        <label for="description" class="flex items-center text-sm font-semibold text-gray-700">
+                            <i class="fas fa-align-left text-purple-600 mr-2"></i>
+                            Product Description
+                        </label>
+                        <textarea id="description" 
+                                  name="description" 
+                                  rows="4"
+                                  class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors duration-200 resize-none"
+                                  placeholder="Describe your energy drink's unique features, taste, benefits, and target audience..."></textarea>
+                        <div class="text-xs text-gray-500">Write a compelling description to attract customers</div>
+                    </div>
+                    
+                    <!-- Stock and Image Row -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="space-y-2">
+                            <label for="stock" class="flex items-center text-sm font-semibold text-gray-700">
+                                <i class="fas fa-boxes text-orange-600 mr-2"></i>
+                                Initial Stock
+                                <span class="text-red-500 ml-1">*</span>
+                            </label>
+                            <input type="number" 
+                                   id="stock" 
+                                   name="stock" 
+                                   min="0" 
+                                   required
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-colors duration-200"
+                                   placeholder="0">
+                            <div class="text-xs text-gray-500">Number of units to add to inventory</div>
+                        </div>
+                        
+                        <div class="space-y-2">
+                            <label for="image_url" class="flex items-center text-sm font-semibold text-gray-700">
+                                <i class="fas fa-image text-indigo-600 mr-2"></i>
+                                Product Image URL
+                            </label>
+                            <input type="url" 
+                                   id="image_url" 
+                                   name="image_url"
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200"
+                                   placeholder="https://example.com/product-image.jpg">
+                            <div class="text-xs text-gray-500">Leave empty to auto-generate placeholder image</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Image Preview -->
+                    <div id="imagePreview" class="hidden space-y-2">
+                        <label class="text-sm font-semibold text-gray-700">Image Preview:</label>
+                        <div class="border border-gray-200 rounded-xl p-4 bg-gray-50">
+                            <img id="previewImg" src="" alt="Product Preview" class="w-32 h-32 object-cover rounded-lg shadow-md mx-auto">
+                        </div>
+                    </div>
+                    
+                    <!-- Submit Buttons -->
+                    <div class="flex flex-col sm:flex-row gap-4 pt-6">
+                        <button type="submit" 
+                                class="flex-1 inline-flex items-center justify-center px-8 py-4 bg-gradient-to-r from-green-600 to-emerald-600 text-white font-bold rounded-xl hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-300">
+                            <i class="fas fa-save mr-3"></i>
+                            Create Product
+                        </button>
+                        <button type="button" 
+                                onclick="clearForm()" 
+                                class="inline-flex items-center justify-center px-6 py-4 bg-gray-100 text-gray-700 font-semibold rounded-xl hover:bg-gray-200 transition-colors duration-200">
+                            <i class="fas fa-eraser mr-2"></i>
+                            Clear Form
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Sidebar -->
+    <div class="xl:col-span-1 space-y-6">
+        <!-- Tips Card -->
+        <div class="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl shadow-lg overflow-hidden">
+            <div class="px-6 py-4 border-b border-blue-100">
+                <h3 class="text-lg font-bold text-gray-800 flex items-center">
+                    <i class="fas fa-lightbulb text-yellow-500 mr-3"></i>
+                    Product Tips
+                </h3>
+            </div>
+            <div class="p-6">
+                <div class="space-y-4">
+                    <div class="flex items-start space-x-3 p-3 bg-white bg-opacity-60 rounded-xl">
+                        <div class="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <i class="fas fa-tag text-white text-sm"></i>
+                        </div>
+                        <div>
+                            <div class="font-semibold text-gray-800 text-sm">Name Strategy</div>
+                            <div class="text-xs text-gray-600">Use keywords like "Energy", "Power", "Boost" to attract customers</div>
+                        </div>
+                    </div>
+                    
+                    <div class="flex items-start space-x-3 p-3 bg-white bg-opacity-60 rounded-xl">
+                        <div class="w-8 h-8 bg-green-500 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <i class="fas fa-dollar-sign text-white text-sm"></i>
+                        </div>
+                        <div>
+                            <div class="font-semibold text-gray-800 text-sm">Pricing Guide</div>
+                            <div class="text-xs text-gray-600">Energy drinks typically range from $2.00 - $5.99</div>
+                        </div>
+                    </div>
+                    
+                    <div class="flex items-start space-x-3 p-3 bg-white bg-opacity-60 rounded-xl">
+                        <div class="w-8 h-8 bg-purple-500 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <i class="fas fa-image text-white text-sm"></i>
+                        </div>
+                        <div>
+                            <div class="font-semibold text-gray-800 text-sm">Image Quality</div>
+                            <div class="text-xs text-gray-600">Use 300x300px images for best display results</div>
+                        </div>
+                    </div>
+                    
+                    <div class="flex items-start space-x-3 p-3 bg-white bg-opacity-60 rounded-xl">
+                        <div class="w-8 h-8 bg-orange-500 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <i class="fas fa-boxes text-white text-sm"></i>
+                        </div>
+                        <div>
+                            <div class="font-semibold text-gray-800 text-sm">Stock Management</div>
+                            <div class="text-xs text-gray-600">Start with 25-50 units for new products</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Image Resources -->
+        <div class="bg-white rounded-2xl shadow-lg overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-100">
+                <h3 class="text-lg font-bold text-gray-800 flex items-center">
+                    <i class="fas fa-photo-video text-indigo-600 mr-3"></i>
+                    Image Resources
+                </h3>
+            </div>
+            <div class="p-6">
+                <div class="space-y-3 text-sm">
+                    <div class="p-3 bg-gray-50 rounded-lg">
+                        <div class="font-semibold text-gray-800 mb-1">Placeholder Generator:</div>
+                        <code class="text-xs text-blue-600 break-all">https://via.placeholder.com/300x300?text=Product+Name</code>
+                    </div>
+                    
+                    <div class="p-3 bg-gray-50 rounded-lg">
+                        <div class="font-semibold text-gray-800 mb-1">Random Images:</div>
+                        <code class="text-xs text-green-600 break-all">https://picsum.photos/300/300</code>
+                    </div>
+                    
+                    <div class="p-3 bg-gradient-to-r from-yellow-50 to-orange-50 rounded-lg border border-yellow-200">
+                        <div class="flex items-center mb-2">
+                            <i class="fas fa-magic text-yellow-600 mr-2"></i>
+                            <div class="font-semibold text-gray-800 text-sm">Auto-Generated</div>
+                        </div>
+                        <div class="text-xs text-gray-600">Leave image URL empty to automatically generate a placeholder based on the product name</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Form elements
+    const form = document.getElementById('productForm');
+    const nameInput = document.getElementById('name');
+    const priceInput = document.getElementById('price');
+    const stockInput = document.getElementById('stock');
+    const imageInput = document.getElementById('image_url');
+    const imagePreview = document.getElementById('imagePreview');
+    const previewImg = document.getElementById('previewImg');
+
+    // Form validation with modern styling
+    form.addEventListener('submit', function(e) {
+        let isValid = true;
+
+        // Clear previous validation states
+        [nameInput, priceInput, stockInput].forEach(input => {
+            input.classList.remove('border-red-500', 'ring-red-500');
+            input.classList.add('border-gray-300');
+        });
+
+        // Validate name
+        if (nameInput.value.trim().length < 2) {
+            showFieldError(nameInput, 'Product name must be at least 2 characters');
+            isValid = false;
+        }
+
+        // Validate price
+        if (parseFloat(priceInput.value) <= 0) {
+            showFieldError(priceInput, 'Price must be greater than 0');
+            isValid = false;
+        }
+
+        // Validate stock
+        if (parseInt(stockInput.value) < 0) {
+            showFieldError(stockInput, 'Stock cannot be negative');
+            isValid = false;
+        }
+
+        if (!isValid) {
+            e.preventDefault();
+            showNotification('Please fix the validation errors before submitting', 'error');
+        }
+    });
+
+    // Show field validation error
+    function showFieldError(field, message) {
+        field.classList.remove('border-gray-300');
+        field.classList.add('border-red-500', 'ring-red-500');
+        
+        // Remove existing error message
+        const existingError = field.parentNode.querySelector('.text-red-500');
+        if (existingError) existingError.remove();
+        
+        // Add error message
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'text-xs text-red-500 mt-1';
+        errorDiv.textContent = message;
+        field.parentNode.appendChild(errorDiv);
+    }
+
+    // Image preview functionality
+    imageInput.addEventListener('input', function() {
+        const url = this.value.trim();
+        if (url) {
+            previewImg.src = url;
+            previewImg.onload = function() {
+                imagePreview.classList.remove('hidden');
+            };
+            previewImg.onerror = function() {
+                imagePreview.classList.add('hidden');
+            };
+        } else {
+            imagePreview.classList.add('hidden');
+        }
+    });
+
+    // Auto-generate placeholder URL when name changes
+    nameInput.addEventListener('blur', function() {
+        if (!imageInput.value && nameInput.value) {
+            const encodedName = encodeURIComponent(nameInput.value);
+            imageInput.value = `https://via.placeholder.com/300x300?text=${encodedName}`;
+            imageInput.dispatchEvent(new Event('input'));
+        }
+    });
+
+    // Real-time validation feedback
+    nameInput.addEventListener('input', function() {
+        if (this.value.trim().length >= 2) {
+            this.classList.remove('border-red-500', 'ring-red-500');
+            this.classList.add('border-green-500', 'ring-green-500');
+        }
+    });
+
+    priceInput.addEventListener('input', function() {
+        if (parseFloat(this.value) > 0) {
+            this.classList.remove('border-red-500', 'ring-red-500');
+            this.classList.add('border-green-500', 'ring-green-500');
+        }
+    });
+
+    stockInput.addEventListener('input', function() {
+        if (parseInt(this.value) >= 0) {
+            this.classList.remove('border-red-500', 'ring-red-500');
+            this.classList.add('border-green-500', 'ring-green-500');
+        }
+    });
+
+    // Show notification
+    function showNotification(message, type = 'info') {
+        const notification = document.createElement('div');
+        notification.className = `fixed top-4 right-4 z-50 px-6 py-3 rounded-lg shadow-lg text-white font-semibold transition-all duration-300 transform translate-x-full`;
+        notification.className += type === 'error' ? ' bg-red-500' : type === 'success' ? ' bg-green-500' : ' bg-blue-500';
+        notification.innerHTML = `
+            <div class="flex items-center">
+                <i class="fas fa-${type === 'error' ? 'exclamation-triangle' : type === 'success' ? 'check-circle' : 'info-circle'} mr-2"></i>
+                ${message}
+            </div>
+        `;
+        
+        document.body.appendChild(notification);
+        
+        setTimeout(() => notification.classList.remove('translate-x-full'), 100);
+        setTimeout(() => {
+            notification.classList.add('translate-x-full');
+            setTimeout(() => notification.remove(), 300);
+        }, 3000);
+    }
+});
+
+// Clear form function
+function clearForm() {
+    document.getElementById('productForm').reset();
+    document.getElementById('imagePreview').classList.add('hidden');
+    
+    // Remove validation classes
+    const inputs = ['name', 'price', 'stock', 'image_url'];
+    inputs.forEach(id => {
+        const input = document.getElementById(id);
+        input.classList.remove('border-red-500', 'ring-red-500', 'border-green-500', 'ring-green-500');
+        input.classList.add('border-gray-300');
+    });
+    
+    // Remove error messages
+    document.querySelectorAll('.text-red-500').forEach(el => {
+        if (el.textContent.includes('must be') || el.textContent.includes('cannot be')) {
+            el.remove();
+        }
+    });
+}
+</script>
+{% endblock %}

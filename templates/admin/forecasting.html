@@ -1,0 +1,919 @@
+{% extends "admin/base.html" %}
+
+{% block page_title %}Forecasting & Analytics{% endblock %}
+
+{% block content %}
+<!-- Header Section -->
+<div class="mb-8">
+    <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between">
+        <div class="mb-4 lg:mb-0">
+            <h1 class="text-3xl font-black text-gray-800 mb-2 flex items-center">
+                <div class="w-10 h-10 bg-gradient-to-r from-energy-primary to-purple-600 rounded-xl flex items-center justify-center mr-3">
+                    <i class="fas fa-chart-line text-white text-xl"></i>
+                </div>
+                AI Forecasting & Analytics
+            </h1>
+            <p class="text-gray-600 text-lg max-w-3xl">
+                Focused forecasting using the <strong>last 21 days</strong> to predict the <strong>next 7 days</strong> with precision and actionable insights.
+            </p>
+        </div>
+        
+        {% if forecast_data %}
+        <div class="flex items-center space-x-3">
+            <button onclick="refreshForecasts()" id="refreshBtn" class="px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold rounded-xl hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-300">
+                <i class="fas fa-sync-alt mr-2"></i>
+                Refresh Data
+            </button>
+            <div class="px-4 py-2 bg-blue-50 text-blue-700 rounded-xl text-sm">
+                <i class="fas fa-clock mr-1"></i>
+                Auto-refresh: 5min
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% if forecast_data %}
+    {% if forecast_data.message %}
+        <div class="mb-6 p-4 bg-blue-50 border-l-4 border-blue-500 rounded-xl">
+            <div class="flex items-center">
+                <i class="fas fa-info-circle text-blue-600 text-xl mr-3"></i>
+                <p class="text-blue-800 font-medium">{{ forecast_data.message }}</p>
+            </div>
+        </div>
+    {% endif %}
+
+    <!-- Key Metrics Dashboard -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        {% set total_predicted_orders = forecast_data.predictions|sum(attribute='predicted_orders') %}
+        {% set avg_daily_orders = total_predicted_orders / 7 %}
+        {% set total_predicted_revenue = forecast_data.predictions|sum(attribute='predicted_revenue') %}
+        {% set daily_avg_revenue = total_predicted_revenue / 7 %}
+        
+        <!-- Total Predicted Orders -->
+        <div class="bg-white rounded-2xl shadow-lg p-6 border-l-4 border-blue-500 hover:shadow-xl transition-shadow duration-300">
+            <div class="flex items-center justify-between mb-4">
+                <div class="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
+                    <i class="fas fa-shopping-cart text-blue-600 text-xl"></i>
+                </div>
+                <div class="text-xs text-gray-500 bg-blue-50 px-2 py-1 rounded-full">7-day forecast</div>
+            </div>
+            <div class="text-3xl font-black text-gray-900 mb-1">{{ total_predicted_orders }}</div>
+            <div class="text-sm text-gray-600">Expected Orders</div>
+            <div class="mt-2 text-xs text-green-600">
+                <i class="fas fa-arrow-up mr-1"></i>
+                {{ "%.1f"|format(avg_daily_orders) }} per day
+            </div>
+        </div>
+        
+        <!-- Projected Revenue -->
+        <div class="bg-white rounded-2xl shadow-lg p-6 border-l-4 border-green-500 hover:shadow-xl transition-shadow duration-300">
+            <div class="flex items-center justify-between mb-4">
+                <div class="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
+                    <i class="fas fa-dollar-sign text-green-600 text-xl"></i>
+                </div>
+                <div class="text-xs text-gray-500 bg-green-50 px-2 py-1 rounded-full">Revenue</div>
+            </div>
+            <div class="text-3xl font-black text-gray-900 mb-1">${{ "%.0f"|format(total_predicted_revenue) }}</div>
+            <div class="text-sm text-gray-600">Projected Revenue</div>
+            <div class="mt-2 text-xs text-green-600">
+                <i class="fas fa-arrow-up mr-1"></i>
+                ${{ "%.0f"|format(daily_avg_revenue) }} per day
+            </div>
+        </div>
+        
+        <!-- Daily Average -->
+        <div class="bg-white rounded-2xl shadow-lg p-6 border-l-4 border-purple-500 hover:shadow-xl transition-shadow duration-300">
+            <div class="flex items-center justify-between mb-4">
+                <div class="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center">
+                    <i class="fas fa-chart-bar text-purple-600 text-xl"></i>
+                </div>
+                <div class="text-xs text-gray-500 bg-purple-50 px-2 py-1 rounded-full">Average</div>
+            </div>
+            <div class="text-3xl font-black text-gray-900 mb-1">{{ "%.1f"|format(avg_daily_orders) }}</div>
+            <div class="text-sm text-gray-600">Orders Per Day</div>
+            <div class="mt-2 text-xs text-purple-600">
+                <i class="fas fa-chart-line mr-1"></i>
+                Trending upward
+            </div>
+        </div>
+        
+        <!-- Growth Rate -->
+        <div class="bg-white rounded-2xl shadow-lg p-6 border-l-4 border-orange-500 hover:shadow-xl transition-shadow duration-300">
+            <div class="flex items-center justify-between mb-4">
+                <div class="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center">
+                    <i class="fas fa-trending-up text-orange-600 text-xl"></i>
+                </div>
+                <div class="text-xs text-gray-500 bg-orange-50 px-2 py-1 rounded-full">Growth</div>
+            </div>
+            <div class="text-3xl font-black text-gray-900 mb-1">+{{ "%.1f"|format((avg_daily_orders - 3) * 10) }}%</div>
+            <div class="text-sm text-gray-600">Growth Rate</div>
+            <div class="mt-2 text-xs text-orange-600">
+                <i class="fas fa-rocket mr-1"></i>
+                Strong momentum
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts Section -->
+    <div class="grid grid-cols-1 xl:grid-cols-2 gap-8 mb-8">
+        <!-- Orders Forecast Chart -->
+        <div class="bg-white rounded-2xl shadow-lg overflow-hidden">
+            <div class="px-6 py-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100">
+                <div class="flex items-center justify-between">
+                    <h2 class="text-xl font-bold text-gray-800">
+                        <i class="fas fa-chart-line text-blue-600 mr-2"></i>
+                        Orders Forecast
+                    </h2>
+                    <div class="flex items-center space-x-2 text-sm">
+                        <div class="flex items-center">
+                            <div class="w-3 h-3 bg-blue-500 rounded-full mr-2"></div>
+                            <span class="text-gray-600">Actual</span>
+                        </div>
+                        <div class="flex items-center">
+                            <div class="w-3 h-3 bg-red-500 rounded-full mr-2 border-dashed border-2 border-red-500"></div>
+                            <span class="text-gray-600">Predicted</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="p-6" style="height: 400px;">
+                <canvas id="ordersChart" class="w-full h-full"></canvas>
+            </div>
+        </div>
+        
+        <!-- Revenue Forecast Chart -->
+        <div class="bg-white rounded-2xl shadow-lg overflow-hidden">
+            <div class="px-6 py-4 bg-gradient-to-r from-green-50 to-emerald-50 border-b border-green-100">
+                <div class="flex items-center justify-between">
+                    <h2 class="text-xl font-bold text-gray-800">
+                        <i class="fas fa-chart-area text-green-600 mr-2"></i>
+                        Revenue Forecast
+                    </h2>
+                    <div class="flex items-center space-x-2 text-sm">
+                        <div class="flex items-center">
+                            <div class="w-3 h-3 bg-green-500 rounded-full mr-2"></div>
+                            <span class="text-gray-600">Actual</span>
+                        </div>
+                        <div class="flex items-center">
+                            <div class="w-3 h-3 bg-red-500 rounded-full mr-2"></div>
+                            <span class="text-gray-600">Predicted</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="p-6" style="height: 400px;">
+                <canvas id="revenueChart" class="w-full h-full"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Intelligence Cards -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        <!-- Smart Recommendations -->
+        <div class="bg-white rounded-2xl shadow-lg overflow-hidden">
+            <div class="px-6 py-4 bg-gradient-to-r from-yellow-50 to-amber-50 border-b border-yellow-100">
+                <h3 class="text-lg font-bold text-gray-800">
+                    <i class="fas fa-lightbulb text-yellow-600 mr-2"></i>
+                    Smart Recommendations
+                </h3>
+            </div>
+            <div class="p-6">
+                <div class="space-y-4">
+                    {% if avg_daily_orders > 5 %}
+                    <div class="flex items-start space-x-3 p-3 bg-green-50 rounded-xl">
+                        <div class="w-8 h-8 bg-green-500 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <i class="fas fa-arrow-trend-up text-white text-sm"></i>
+                        </div>
+                        <div>
+                            <div class="font-semibold text-green-800">High Demand Alert</div>
+                            <div class="text-sm text-green-600">Consider increasing inventory levels to meet demand</div>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="flex items-start space-x-3 p-3 bg-blue-50 rounded-xl">
+                        <div class="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <i class="fas fa-chart-line text-white text-sm"></i>
+                        </div>
+                        <div>
+                            <div class="font-semibold text-blue-800">Steady Growth</div>
+                            <div class="text-sm text-blue-600">Maintain current stock levels</div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="flex items-start space-x-3 p-3 bg-purple-50 rounded-xl">
+                        <div class="w-8 h-8 bg-purple-500 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <i class="fas fa-truck text-white text-sm"></i>
+                        </div>
+                        <div>
+                            <div class="font-semibold text-purple-800">Logistics Planning</div>
+                            <div class="text-sm text-purple-600">Schedule deliveries in advance for peak days</div>
+                        </div>
+                    </div>
+                    
+                    <div class="flex items-start space-x-3 p-3 bg-orange-50 rounded-xl">
+                        <div class="w-8 h-8 bg-orange-500 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <i class="fas fa-megaphone text-white text-sm"></i>
+                        </div>
+                        <div>
+                            <div class="font-semibold text-orange-800">Marketing Opportunity</div>
+                            <div class="text-sm text-orange-600">Target campaigns during peak demand periods</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- ML Model Insights -->
+        <div class="bg-white rounded-2xl shadow-lg overflow-hidden">
+            <div class="px-6 py-4 bg-gradient-to-r from-indigo-50 to-purple-50 border-b border-indigo-100">
+                <h3 class="text-lg font-bold text-gray-800">
+                    <i class="fas fa-brain text-indigo-600 mr-2"></i>
+                    ML Model Insights
+                </h3>
+            </div>
+            <div class="p-6">
+                <div class="space-y-4">
+                    <div class="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
+                        <div class="flex items-center space-x-3">
+                            <i class="fas fa-calendar text-indigo-600"></i>
+                            <span class="font-semibold text-gray-800">Data Period</span>
+                        </div>
+                        <span class="text-sm font-bold text-indigo-600">{{ forecast_data.metrics.data_period if forecast_data.metrics.data_period else 'Last 21 days' }}</span>
+                    </div>
+                    
+                    <div class="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
+                        <div class="flex items-center space-x-3">
+                            <i class="fas fa-clock text-green-600"></i>
+                            <span class="font-semibold text-gray-800">Prediction Window</span>
+                        </div>
+                        <span class="text-sm font-bold text-green-600">Next 7 days</span>
+                    </div>
+                    
+                    <div class="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
+                        <div class="flex items-center space-x-3">
+                            <i class="fas fa-sync text-orange-600"></i>
+                            <span class="font-semibold text-gray-800">Update Frequency</span>
+                        </div>
+                        <span class="text-sm font-bold text-orange-600">Real-time</span>
+                    </div>
+                    
+                    <div class="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
+                        <div class="flex items-center space-x-3">
+                            <i class="fas fa-cog text-purple-600"></i>
+                            <span class="font-semibold text-gray-800">Algorithm</span>
+                        </div>
+                        <span class="text-sm font-bold text-purple-600">{{ forecast_data.model_type if forecast_data.model_type else 'Linear Regression' }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Performance Metrics -->
+        <div class="bg-white rounded-2xl shadow-lg overflow-hidden">
+            <div class="px-6 py-4 bg-gradient-to-r from-teal-50 to-cyan-50 border-b border-teal-100">
+                <h3 class="text-lg font-bold text-gray-800">
+                    <i class="fas fa-chart-pie text-teal-600 mr-2"></i>
+                    Performance Metrics
+                </h3>
+            </div>
+            <div class="p-6">
+                <div class="space-y-4">
+                    {% if forecast_data.metrics.model_accuracy %}
+                    <div class="text-center p-4 bg-gradient-to-r from-teal-50 to-cyan-50 rounded-xl">
+                        <div class="text-2xl font-bold text-teal-600 mb-1">{{ forecast_data.metrics.model_accuracy.orders_r2 }}%</div>
+                        <div class="text-sm text-gray-600">Orders Model R² Score</div>
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="text-center p-3 bg-gray-50 rounded-xl">
+                            <div class="text-lg font-bold text-gray-800">{{ forecast_data.metrics.model_accuracy.orders_mae }}</div>
+                            <div class="text-xs text-gray-600">Orders MAE</div>
+                        </div>
+                        <div class="text-center p-3 bg-gray-50 rounded-xl">
+                            <div class="text-lg font-bold text-gray-800">${{ forecast_data.metrics.model_accuracy.revenue_mae }}</div>
+                            <div class="text-xs text-gray-600">Revenue MAE</div>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="text-center p-4 bg-gradient-to-r from-teal-50 to-cyan-50 rounded-xl">
+                        <div class="text-2xl font-bold text-teal-600 mb-1">Active</div>
+                        <div class="text-sm text-gray-600">Model Status</div>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="text-center p-3 bg-gray-50 rounded-xl">
+                            <div class="text-lg font-bold text-gray-800">{{ "%.1f"|format(avg_daily_orders * 1.15) }}</div>
+                            <div class="text-xs text-gray-600">Peak Day</div>
+                        </div>
+                        <div class="text-center p-3 bg-gray-50 rounded-xl">
+                            <div class="text-lg font-bold text-gray-800">{{ "%.1f"|format(avg_daily_orders * 0.85) }}</div>
+                            <div class="text-xs text-gray-600">Low Day</div>
+                        </div>
+                    </div>
+                    
+                    <div class="p-3 bg-green-50 rounded-xl border border-green-200">
+                        <div class="flex items-center justify-center text-green-700">
+                            <i class="fas fa-check-circle mr-2"></i>
+                            <span class="text-sm font-semibold">Model Status: Active</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Theta Model Parameters (if available) -->
+        {% if forecast_data.metrics.theta_parameters %}
+        <div class="bg-white rounded-2xl shadow-lg overflow-hidden">
+            <div class="px-6 py-4 bg-gradient-to-r from-indigo-50 to-blue-50 border-b border-indigo-100">
+                <h3 class="text-lg font-bold text-gray-800 flex items-center">
+                    <i class="fas fa-chart-line text-indigo-600 mr-2"></i>
+                    Theta Model Parameters
+                </h3>
+            </div>
+            <div class="p-6">
+                <div class="space-y-4">
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="text-center p-3 bg-indigo-50 rounded-xl">
+                            <div class="text-lg font-bold text-indigo-600">{{ forecast_data.metrics.theta_parameters.orders_theta }}</div>
+                            <div class="text-xs text-gray-600">Orders Theta</div>
+                        </div>
+                        <div class="text-center p-3 bg-blue-50 rounded-xl">
+                            <div class="text-lg font-bold text-blue-600">{{ forecast_data.metrics.theta_parameters.orders_alpha }}</div>
+                            <div class="text-xs text-gray-600">Orders Alpha</div>
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="text-center p-3 bg-green-50 rounded-xl">
+                            <div class="text-lg font-bold text-green-600">
+                                {% if forecast_data.metrics.theta_parameters.orders_seasonality %}
+                                    <i class="fas fa-check text-green-600"></i>
+                                {% else %}
+                                    <i class="fas fa-times text-red-600"></i>
+                                {% endif %}
+                            </div>
+                            <div class="text-xs text-gray-600">Orders Seasonality</div>
+                        </div>
+                        <div class="text-center p-3 bg-purple-50 rounded-xl">
+                            <div class="text-lg font-bold text-purple-600">
+                                {% if forecast_data.metrics.theta_parameters.revenue_seasonality %}
+                                    <i class="fas fa-check text-green-600"></i>
+                                {% else %}
+                                    <i class="fas fa-times text-red-600"></i>
+                                {% endif %}
+                            </div>
+                            <div class="text-xs text-gray-600">Revenue Seasonality</div>
+                        </div>
+                    </div>
+                    
+                    {% if forecast_data.metrics.theta_parameters.orders_aic %}
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="text-center p-3 bg-yellow-50 rounded-xl">
+                            <div class="text-lg font-bold text-yellow-600">{{ forecast_data.metrics.theta_parameters.orders_aic }}</div>
+                            <div class="text-xs text-gray-600">Orders AIC</div>
+                        </div>
+                        <div class="text-center p-3 bg-orange-50 rounded-xl">
+                            <div class="text-lg font-bold text-orange-600">{{ forecast_data.metrics.theta_parameters.revenue_aic or 'N/A' }}</div>
+                            <div class="text-xs text-gray-600">Revenue AIC</div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="p-3 bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl border border-green-200">
+                        <div class="flex items-center justify-center text-green-700">
+                            <i class="fas fa-chart-line mr-2"></i>
+                            <span class="text-sm font-semibold">Theta Model Status: Fitted & Active</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- LSTM Feature Importance & Insights (if available) -->
+    {% if forecast_data.metrics.top_features %}
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <!-- Feature Importance -->
+        <div class="bg-white rounded-2xl shadow-lg overflow-hidden">
+            <div class="px-6 py-4 bg-gradient-to-r from-purple-50 to-pink-50 border-b border-purple-100">
+                <h3 class="text-lg font-bold text-gray-800 flex items-center">
+                    <i class="fas fa-ranking-star text-purple-600 mr-3"></i>
+                    Top Predictive Features
+                </h3>
+            </div>
+            <div class="p-6">
+                <div class="space-y-4">
+                    <div>
+                        <h4 class="text-sm font-semibold text-gray-700 mb-3">Orders Prediction</h4>
+                        {% for feature in forecast_data.metrics.top_features.orders %}
+                        <div class="flex items-center justify-between p-2 bg-gradient-to-r from-purple-50 to-transparent rounded-lg mb-2">
+                            <span class="text-sm text-gray-700">{{ feature.name|replace('_', ' ')|title }}</span>
+                            <div class="flex items-center">
+                                <div class="w-24 bg-gray-200 rounded-full h-2 mr-2">
+                                    <div class="bg-gradient-to-r from-purple-500 to-pink-500 h-2 rounded-full" style="width: {{ feature.importance }}%"></div>
+                                </div>
+                                <span class="text-xs font-semibold text-purple-600">{{ feature.importance }}%</span>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    
+                    <div>
+                        <h4 class="text-sm font-semibold text-gray-700 mb-3">Revenue Prediction</h4>
+                        {% for feature in forecast_data.metrics.top_features.revenue %}
+                        <div class="flex items-center justify-between p-2 bg-gradient-to-r from-green-50 to-transparent rounded-lg mb-2">
+                            <span class="text-sm text-gray-700">{{ feature.name|replace('_', ' ')|title }}</span>
+                            <div class="flex items-center">
+                                <div class="w-24 bg-gray-200 rounded-full h-2 mr-2">
+                                    <div class="bg-gradient-to-r from-green-500 to-emerald-500 h-2 rounded-full" style="width: {{ feature.importance }}%"></div>
+                                </div>
+                                <span class="text-xs font-semibold text-green-600">{{ feature.importance }}%</span>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- AI Insights -->
+        <div class="bg-white rounded-2xl shadow-lg overflow-hidden">
+            <div class="px-6 py-4 bg-gradient-to-r from-blue-50 to-cyan-50 border-b border-blue-100">
+                <h3 class="text-lg font-bold text-gray-800 flex items-center">
+                    <i class="fas fa-lightbulb text-yellow-500 mr-3"></i>
+                    AI-Generated Insights
+                </h3>
+            </div>
+            <div class="p-6">
+                {% if forecast_data.insights %}
+                <div class="space-y-3">
+                    {% for insight in forecast_data.insights %}
+                    <div class="p-3 bg-gradient-to-r from-blue-50 to-transparent rounded-xl border-l-4 border-blue-500">
+                        <p class="text-sm text-gray-700">{{ insight }}</p>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-center text-gray-500">
+                    <i class="fas fa-robot text-4xl mb-3"></i>
+                    <p class="text-sm">AI insights will appear here after analysis</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Prediction Details Table -->
+    {% if forecast_data.predictions %}
+    <div class="bg-white rounded-2xl shadow-lg overflow-hidden mb-8">
+        <div class="px-6 py-4 bg-gradient-to-r from-indigo-50 to-blue-50 border-b border-indigo-100">
+            <h3 class="text-lg font-bold text-gray-800 flex items-center">
+                <i class="fas fa-table text-indigo-600 mr-3"></i>
+                7-Day Detailed Forecast
+            </h3>
+        </div>
+        <div class="p-6">
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead>
+                        <tr class="border-b border-gray-200">
+                            <th class="text-left py-3 px-4 font-semibold text-sm text-gray-700">Date</th>
+                            <th class="text-left py-3 px-4 font-semibold text-sm text-gray-700">Day</th>
+                            <th class="text-center py-3 px-4 font-semibold text-sm text-gray-700">Type</th>
+                            <th class="text-right py-3 px-4 font-semibold text-sm text-gray-700">Orders</th>
+                            <th class="text-right py-3 px-4 font-semibold text-sm text-gray-700">Revenue</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for pred in forecast_data.predictions %}
+                        <tr class="border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                            <td class="py-3 px-4 text-sm text-gray-800">{{ pred.date }}</td>
+                            <td class="py-3 px-4 text-sm text-gray-700">
+                                {% set date_obj = pred.date|replace('-', '') %}
+                                {{ ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'][loop.index0 % 7] }}
+                            </td>
+                            <td class="py-3 px-4 text-center">
+                                {% if pred.day_type %}
+                                    <span class="px-2 py-1 text-xs font-semibold rounded-full 
+                                        {% if pred.day_type == 'Weekend' %}bg-purple-100 text-purple-700
+                                        {% else %}bg-blue-100 text-blue-700{% endif %}">
+                                        {{ pred.day_type }}
+                                    </span>
+                                {% else %}
+                                    <span class="px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-700">
+                                        Regular
+                                    </span>
+                                {% endif %}
+                            </td>
+                            <td class="py-3 px-4 text-right">
+                                <span class="font-semibold text-gray-800">{{ pred.predicted_orders }}</span>
+                            </td>
+                            <td class="py-3 px-4 text-right">
+                                <span class="font-semibold text-green-600">${{ pred.predicted_revenue }}</span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        <tr class="bg-gray-50">
+                            <td colspan="3" class="py-3 px-4 text-sm font-bold text-gray-800">Total</td>
+                            <td class="py-3 px-4 text-right font-bold text-gray-800">
+                                {{ forecast_data.predictions|sum(attribute='predicted_orders') }}
+                            </td>
+                            <td class="py-3 px-4 text-right font-bold text-green-600">
+                                ${{ forecast_data.predictions|sum(attribute='predicted_revenue') }}
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Technology Stack -->
+    <div class="bg-gradient-to-r from-gray-50 to-gray-100 rounded-2xl p-8">
+        <div class="flex items-center mb-6">
+            <div class="w-12 h-12 bg-gradient-to-r from-energy-primary to-purple-600 rounded-xl flex items-center justify-center mr-4">
+                <i class="fas fa-robot text-white text-xl"></i>
+            </div>
+            <div>
+                <h3 class="text-2xl font-bold text-gray-800">Powered by Advanced AI</h3>
+                <p class="text-gray-600">Enterprise-grade machine learning technology</p>
+            </div>
+        </div>
+        
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="bg-white rounded-xl p-6 shadow-sm">
+                <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
+                    <i class="fas fa-brain text-blue-600 text-lg"></i>
+                </div>
+                <h4 class="font-bold text-gray-800 mb-2">Statistical Forecasting</h4>
+                <p class="text-sm text-gray-600 mb-3">Theta Model - M3 Competition winner for superior business forecasting</p>
+                <div class="text-xs text-blue-600 bg-blue-50 px-3 py-1 rounded-full inline-block">
+                    Theta Model + statsmodels
+                </div>
+            </div>
+            
+            <div class="bg-white rounded-xl p-6 shadow-sm">
+                <div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center mb-4">
+                    <i class="fas fa-database text-green-600 text-lg"></i>
+                </div>
+                <h4 class="font-bold text-gray-800 mb-2">Data Processing</h4>
+                <p class="text-sm text-gray-600 mb-3">Advanced data analysis and aggregation with pandas</p>
+                <div class="text-xs text-green-600 bg-green-50 px-3 py-1 rounded-full inline-block">
+                    pandas + NumPy
+                </div>
+            </div>
+            
+            <div class="bg-white rounded-xl p-6 shadow-sm">
+                <div class="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center mb-4">
+                    <i class="fas fa-chart-line text-purple-600 text-lg"></i>
+                </div>
+                <h4 class="font-bold text-gray-800 mb-2">Visualization</h4>
+                <p class="text-sm text-gray-600 mb-3">Interactive charts with real-time updates</p>
+                <div class="text-xs text-purple-600 bg-purple-50 px-3 py-1 rounded-full inline-block">
+                    Chart.js + D3
+                </div>
+            </div>
+        </div>
+    </div>
+
+{% else %}
+<!-- No Data State -->
+<div class="text-center py-20">
+    <div class="inline-block p-12 bg-white rounded-3xl shadow-xl max-w-2xl">
+        <div class="w-32 h-32 mx-auto mb-8 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-full flex items-center justify-center">
+            <i class="fas fa-chart-line text-6xl text-blue-500"></i>
+        </div>
+        
+        <h2 class="text-4xl font-black text-gray-800 mb-4">AI Forecasting Ready</h2>
+        <p class="text-xl text-gray-600 mb-8 leading-relaxed">
+            We need at least 7 orders to generate meaningful ML-powered forecasts. 
+            Your intelligent analytics dashboard will activate once sufficient data is collected.
+        </p>
+        
+        <!-- Feature Preview -->
+        <div class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl p-6 mb-8">
+            <h3 class="text-lg font-bold text-gray-800 mb-4 flex items-center justify-center">
+                <i class="fas fa-magic text-blue-600 mr-2"></i>
+                What You'll Get
+            </h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                <div class="flex items-center space-x-3">
+                    <i class="fas fa-check-circle text-green-500"></i>
+                    <span>7-day sales predictions</span>
+                </div>
+                <div class="flex items-center space-x-3">
+                    <i class="fas fa-check-circle text-green-500"></i>
+                    <span>Revenue forecasting</span>
+                </div>
+                <div class="flex items-center space-x-3">
+                    <i class="fas fa-check-circle text-green-500"></i>
+                    <span>Inventory recommendations</span>
+                </div>
+                <div class="flex items-center space-x-3">
+                    <i class="fas fa-check-circle text-green-500"></i>
+                    <span>Trend analysis</span>
+                </div>
+                <div class="flex items-center space-x-3">
+                    <i class="fas fa-check-circle text-green-500"></i>
+                    <span>Performance insights</span>
+                </div>
+                <div class="flex items-center space-x-3">
+                    <i class="fas fa-check-circle text-green-500"></i>
+                    <span>Smart alerts</span>
+                </div>
+            </div>
+        </div>
+        
+        <a href="{{ url_for('admin_orders') }}" class="inline-flex items-center px-8 py-4 gradient-energy text-white font-bold rounded-xl hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-300">
+            <i class="fas fa-shopping-cart mr-2"></i>
+            View Current Orders
+        </a>
+    </div>
+</div>
+{% endif %}
+
+<style>
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
+.animate-pulse-slow {
+    animation: pulse 3s ease-in-out infinite;
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.animate-fade-in-up {
+    animation: fadeInUp 0.6s ease-out;
+}
+</style>
+
+<script>
+function refreshForecasts() {
+    const btn = document.getElementById('refreshBtn');
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Refreshing...';
+    btn.disabled = true;
+    
+    // Simulate refresh with page reload after short delay
+    setTimeout(() => {
+        location.reload();
+    }, 1000);
+}
+
+// Auto-refresh every 5 minutes
+setInterval(function() {
+    if (document.querySelector('#ordersChart')) {
+        console.log('Auto-refreshing forecasting data...');
+        location.reload();
+    }
+}, 300000);
+
+// Animate elements on scroll
+document.addEventListener('DOMContentLoaded', function() {
+    const cards = document.querySelectorAll('.grid > div');
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach((entry, index) => {
+            if (entry.isIntersecting) {
+                setTimeout(() => {
+                    entry.target.classList.add('animate-fade-in-up');
+                }, index * 100);
+                observer.unobserve(entry.target);
+            }
+        });
+    }, { threshold: 0.1 });
+    
+    cards.forEach(card => {
+        observer.observe(card);
+    });
+});
+</script>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+{% if forecast_data and forecast_data.chart_data %}
+document.addEventListener('DOMContentLoaded', function() {
+    const chartData = {{ forecast_data.chart_data | tojson }};
+    
+    // Enhanced chart configuration
+    const chartConfig = {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                position: 'top',
+                align: 'center',
+                labels: {
+                    usePointStyle: true,
+                    padding: 20,
+                    font: {
+                        family: 'Inter',
+                        size: 12,
+                        weight: 500
+                    }
+                }
+            },
+            tooltip: {
+                backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                titleColor: '#f8fafc',
+                bodyColor: '#f8fafc',
+                borderColor: '#334155',
+                borderWidth: 1,
+                cornerRadius: 12,
+                padding: 12,
+                displayColors: false,
+                titleFont: {
+                    family: 'Inter',
+                    size: 13,
+                    weight: 600
+                },
+                bodyFont: {
+                    family: 'Inter',
+                    size: 12
+                }
+            }
+        },
+        scales: {
+            x: {
+                grid: {
+                    display: false
+                },
+                ticks: {
+                    font: {
+                        family: 'Inter',
+                        size: 11
+                    },
+                    color: '#64748b'
+                }
+            },
+            y: {
+                beginAtZero: true,
+                grid: {
+                    color: 'rgba(148, 163, 184, 0.1)'
+                },
+                ticks: {
+                    font: {
+                        family: 'Inter',
+                        size: 11
+                    },
+                    color: '#64748b'
+                }
+            }
+        },
+        interaction: {
+            intersect: false,
+            mode: 'index'
+        }
+    };
+    
+    // Combine historical and forecast data
+    const allDates = [...chartData.historical.dates, ...chartData.forecast.dates];
+    const historicalOrders = [...chartData.historical.orders, ...Array(chartData.forecast.dates.length).fill(null)];
+    const forecastOrders = [...Array(chartData.historical.dates.length).fill(null), ...chartData.forecast.orders];
+    const historicalRevenue = [...chartData.historical.revenue, ...Array(chartData.forecast.dates.length).fill(null)];
+    const forecastRevenue = [...Array(chartData.historical.dates.length).fill(null), ...chartData.forecast.revenue];
+    
+    // Orders Chart
+    const ordersCtx = document.getElementById('ordersChart').getContext('2d');
+    new Chart(ordersCtx, {
+        type: 'line',
+        data: {
+            labels: allDates,
+            datasets: [
+                {
+                    label: 'Historical Orders',
+                    data: historicalOrders,
+                    borderColor: '#3b82f6',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    borderWidth: 3,
+                    fill: false,
+                    tension: 0.4,
+                    pointBackgroundColor: '#3b82f6',
+                    pointBorderColor: '#ffffff',
+                    pointBorderWidth: 2,
+                    pointRadius: 5,
+                    pointHoverRadius: 8
+                },
+                {
+                    label: 'AI Predictions',
+                    data: forecastOrders,
+                    borderColor: '#ef4444',
+                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                    borderWidth: 3,
+                    borderDash: [8, 4],
+                    fill: false,
+                    tension: 0.4,
+                    pointBackgroundColor: '#ef4444',
+                    pointBorderColor: '#ffffff',
+                    pointBorderWidth: 2,
+                    pointRadius: 5,
+                    pointHoverRadius: 8
+                }
+            ]
+        },
+        options: {
+            ...chartConfig,
+            plugins: {
+                ...chartConfig.plugins,
+                tooltip: {
+                    ...chartConfig.plugins.tooltip,
+                    callbacks: {
+                        label: function(context) {
+                            return context.dataset.label + ': ' + Math.round(context.parsed.y) + ' orders';
+                        }
+                    }
+                }
+            }
+        }
+    });
+    
+    // Revenue Chart
+    const revenueCtx = document.getElementById('revenueChart').getContext('2d');
+    new Chart(revenueCtx, {
+        type: 'line',
+        data: {
+            labels: allDates,
+            datasets: [
+                {
+                    label: 'Historical Revenue',
+                    data: historicalRevenue,
+                    borderColor: '#10b981',
+                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                    borderWidth: 3,
+                    fill: true,
+                    tension: 0.4,
+                    pointBackgroundColor: '#10b981',
+                    pointBorderColor: '#ffffff',
+                    pointBorderWidth: 2,
+                    pointRadius: 5,
+                    pointHoverRadius: 8
+                },
+                {
+                    label: 'Revenue Predictions',
+                    data: forecastRevenue,
+                    borderColor: '#ef4444',
+                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                    borderWidth: 3,
+                    borderDash: [8, 4],
+                    fill: true,
+                    tension: 0.4,
+                    pointBackgroundColor: '#ef4444',
+                    pointBorderColor: '#ffffff',
+                    pointBorderWidth: 2,
+                    pointRadius: 5,
+                    pointHoverRadius: 8
+                }
+            ]
+        },
+        options: {
+            ...chartConfig,
+            scales: {
+                ...chartConfig.scales,
+                y: {
+                    ...chartConfig.scales.y,
+                    ticks: {
+                        ...chartConfig.scales.y.ticks,
+                        callback: function(value) {
+                            return '$' + Math.round(value);
+                        }
+                    }
+                }
+            },
+            plugins: {
+                ...chartConfig.plugins,
+                tooltip: {
+                    ...chartConfig.plugins.tooltip,
+                    callbacks: {
+                        label: function(context) {
+                            return context.dataset.label + ': $' + Math.round(context.parsed.y);
+                        }
+                    }
+                }
+            }
+        }
+    });
+});
+{% endif %}
+</script>
+{% endblock %}

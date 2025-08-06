@@ -1,0 +1,1337 @@
+{% extends "admin/base.html" %}
+
+{% block page_title %}Orders Management{% endblock %}
+
+{% block content %}
+<!-- Header Section -->
+<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8">
+    <div>
+        <h1 class="text-3xl font-bold text-gray-800 mb-2">Orders Management</h1>
+        <p class="text-gray-600">Track and manage customer orders efficiently</p>
+    </div>
+    
+    <!-- Enhanced AJAX Filter Section -->
+    <div class="mt-6 sm:mt-0">
+        <!-- Filter Header -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-semibold text-gray-800 flex items-center">
+                    <i class="fas fa-filter text-energy-primary mr-2"></i>
+                    Advanced Filters
+                </h3>
+                <button id="toggleFilters" onclick="toggleFilterPanel()" 
+                        class="text-gray-500 hover:text-energy-primary transition-colors">
+                    <i class="fas fa-chevron-up text-sm"></i>
+                </button>
+            </div>
+            
+            <div id="filterPanel" class="space-y-4">
+                <!-- Row 1: Status and Quick Actions -->
+                <div class="flex flex-wrap gap-4 items-center">
+                    <!-- Status Filter with Icons -->
+                    <div class="flex-1 min-w-64">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Order Status</label>
+                        <div class="relative">
+                            <select id="statusFilter" 
+                                    class="w-full px-4 py-3 bg-white border-2 border-gray-300 rounded-lg font-medium text-gray-700 focus:border-energy-primary focus:ring-2 focus:ring-energy-primary focus:ring-opacity-20 focus:outline-none transition-all cursor-pointer">
+                                <option value="all">🔍 All Orders</option>
+                                <option value="Pending">⏳ Pending Orders</option>
+                                <option value="Shipped">🚚 Shipped Orders</option>
+                                <option value="Delivered">✅ Delivered Orders</option>
+                                <option value="Completed">🎉 Completed Orders</option>
+                                <option value="Cancelled">❌ Cancelled Orders</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <!-- Quick Filter Buttons -->
+                    <div class="flex gap-2">
+                        <button onclick="applyQuickFilter('today')" 
+                                class="px-4 py-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg text-sm font-medium transition-colors">
+                            📅 Today
+                        </button>
+                        <button onclick="applyQuickFilter('week')" 
+                                class="px-4 py-2 bg-green-100 hover:bg-green-200 text-green-700 rounded-lg text-sm font-medium transition-colors">
+                            📊 This Week
+                        </button>
+                        <button onclick="applyQuickFilter('month')" 
+                                class="px-4 py-2 bg-purple-100 hover:bg-purple-200 text-purple-700 rounded-lg text-sm font-medium transition-colors">
+                            📈 This Month
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Row 2: Date Range and Search -->
+                <div class="flex flex-wrap gap-4 items-end">
+                    <!-- Date Range with Labels -->
+                    <div class="flex gap-3 items-end">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">From Date</label>
+                            <input type="date" id="dateFrom" 
+                                   class="px-3 py-3 border-2 border-gray-300 rounded-lg focus:border-energy-primary focus:ring-2 focus:ring-energy-primary focus:ring-opacity-20 focus:outline-none text-sm transition-all">
+                        </div>
+                        <div class="text-gray-400 pb-3">→</div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">To Date</label>
+                            <input type="date" id="dateTo" 
+                                   class="px-3 py-3 border-2 border-gray-300 rounded-lg focus:border-energy-primary focus:ring-2 focus:ring-energy-primary focus:ring-opacity-20 focus:outline-none text-sm transition-all">
+                        </div>
+                    </div>
+                    
+                    <!-- Advanced Search -->
+                    <div class="flex-1 min-w-80">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Search Orders</label>
+                        <div class="relative">
+                            <input type="text" id="searchInput" placeholder="Search by customer name, phone, address, or order ID..." 
+                                   class="w-full pl-12 pr-4 py-3 border-2 border-gray-300 rounded-lg focus:border-energy-primary focus:ring-2 focus:ring-energy-primary focus:ring-opacity-20 focus:outline-none text-sm transition-all">
+                            <i class="fas fa-search absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                            <button id="clearSearch" onclick="clearSearch()" 
+                                    class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 hidden">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Row 3: Action Buttons and Filter Status -->
+                <div class="flex items-center justify-between pt-2 border-t border-gray-100">
+                    <div class="flex gap-3">
+                        <button id="applyFilters" onclick="applyFilters()" 
+                                class="px-6 py-2 bg-energy-primary hover:bg-energy-secondary text-white rounded-lg font-semibold transition-colors shadow-sm">
+                            <i class="fas fa-search mr-2"></i>Apply Filters
+                        </button>
+                        <button onclick="clearAllFilters()" 
+                                class="px-6 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg font-semibold transition-colors">
+                            <i class="fas fa-eraser mr-2"></i>Clear All
+                        </button>
+                    </div>
+                    
+                    <!-- Filter Status Display -->
+                    <div id="filterStatus" class="text-sm text-gray-600 flex items-center">
+                        <i class="fas fa-info-circle mr-2 text-energy-primary"></i>
+                        <span>Showing all orders</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if orders %}
+<!-- Orders Stats -->
+<div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+    <div class="bg-white rounded-xl p-6 shadow-lg border-l-4 border-energy-primary">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-sm text-gray-600">Total Orders</p>
+                <p class="text-2xl font-bold text-gray-900">{{ orders|length }}</p>
+            </div>
+            <i class="fas fa-shopping-cart text-3xl text-energy-primary"></i>
+        </div>
+    </div>
+    
+    <div class="bg-white rounded-xl p-6 shadow-lg border-l-4 border-yellow-500">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-sm text-gray-600">Pending Orders</p>
+                <p class="text-2xl font-bold text-gray-900">{{ orders|selectattr('status', '==', 'Pending')|list|length }}</p>
+            </div>
+            <i class="fas fa-clock text-3xl text-yellow-500"></i>
+        </div>
+    </div>
+    
+    <div class="bg-white rounded-xl p-6 shadow-lg border-l-4 border-blue-500">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-sm text-gray-600">Shipped Orders</p>
+                <p class="text-2xl font-bold text-gray-900">{{ orders|selectattr('status', '==', 'Shipped')|list|length }}</p>
+            </div>
+            <i class="fas fa-truck text-3xl text-blue-500"></i>
+        </div>
+    </div>
+    
+    <div class="bg-white rounded-xl p-6 shadow-lg border-l-4 border-green-500">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-sm text-gray-600">Delivered Orders</p>
+                <p class="text-2xl font-bold text-gray-900">{{ orders|selectattr('status', '==', 'Delivered')|list|length }}</p>
+            </div>
+            <i class="fas fa-check-circle text-3xl text-green-500"></i>
+        </div>
+    </div>
+</div>
+
+<!-- Orders Table with AJAX Loading -->
+<div class="bg-white rounded-2xl shadow-lg overflow-hidden">
+    <!-- Table Header with Dynamic Stats -->
+    <div class="px-6 py-4 bg-gradient-to-r from-gray-50 to-white border-b border-gray-200">
+        <div class="flex items-center justify-between">
+            <h2 id="ordersTableTitle" class="text-xl font-bold text-gray-800">
+                <i class="fas fa-list text-energy-primary mr-2"></i>
+                All Orders ({{ orders|length }})
+            </h2>
+            
+            <!-- Loading Indicator -->
+            <div id="loadingIndicator" class="hidden flex items-center text-energy-primary">
+                <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-energy-primary mr-2"></div>
+                <span class="text-sm font-medium">Filtering...</span>
+            </div>
+            
+            <!-- Filter Results Stats -->
+            <div id="filterResultsStats" class="hidden text-sm text-gray-600 flex items-center space-x-4">
+                <span id="totalRevenue" class="flex items-center">
+                    <i class="fas fa-dollar-sign text-green-500 mr-1"></i>
+                    <span>$0.00</span>
+                </span>
+                <span id="avgOrderValue" class="flex items-center">
+                    <i class="fas fa-chart-line text-blue-500 mr-1"></i>
+                    <span>$0.00 avg</span>
+                </span>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Filter Summary Bar -->
+    <div id="filterSummary" class="hidden px-6 py-3 bg-blue-50 border-b border-blue-100">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center space-x-4 text-sm">
+                <span id="activeFiltersText" class="text-blue-700 font-medium"></span>
+            </div>
+            <button onclick="clearAllFilters()" 
+                    class="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                <i class="fas fa-times mr-1"></i>Clear filters
+            </button>
+        </div>
+    </div>
+    
+    <!-- Table Content Container -->
+    <div id="ordersTableContainer">
+        <!-- Desktop Table View -->
+        <div class="hidden lg:block overflow-x-auto">
+            <table class="w-full" id="ordersDesktopTable">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Order ID</th>
+                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Customer</th>
+                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Items</th>
+                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Total</th>
+                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
+                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Date</th>
+                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200">
+                {% for order in orders %}
+                <tr class="order-row hover:bg-gray-50 transition-colors" data-status="{{ order.status }}">
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="text-sm font-bold text-energy-primary">#{{ order.id }}</span>
+                    </td>
+                    <td class="px-6 py-4">
+                        <div class="flex items-center">
+                            <div class="w-10 h-10 bg-energy-primary rounded-full flex items-center justify-center mr-3">
+                                <span class="text-sm font-bold text-white">{{ order.customer_name[0].upper() }}</span>
+                            </div>
+                            <div>
+                                <div class="text-sm font-bold text-gray-900">{{ order.customer_name }}</div>
+                                <div class="text-xs text-gray-500">
+                                    <i class="fas fa-phone mr-1"></i>{{ order.customer_phone }}
+                                </div>
+                                <div class="text-xs text-gray-500">
+                                    <i class="fas fa-map-marker-alt mr-1"></i>
+                                    {{ order.customer_address[:40] }}{% if order.customer_address|length > 40 %}...{% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4">
+                        {% if order.items %}
+                            {% set items = order.items|from_json %}
+                            <div class="max-w-xs">
+                                {% for item in items[:2] %}
+                                    <div class="text-sm text-gray-600">
+                                        <span class="font-semibold text-energy-primary">{{ item.quantity }}x</span> {{ item.name }}
+                                    </div>
+                                {% endfor %}
+                                {% if items|length > 2 %}
+                                    <div class="text-xs text-gray-500 mt-1">
+                                        +{{ items|length - 2 }} more items
+                                    </div>
+                                {% endif %}
+                            </div>
+                        {% else %}
+                            <span class="text-sm text-gray-500">No items data</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="text-lg font-bold text-green-600">${{ "%.2f"|format(order.total_amount) }}</span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        {% set status_classes = {
+                            'Pending': 'bg-yellow-100 text-yellow-800',
+                            'Shipped': 'bg-blue-100 text-blue-800',
+                            'Delivered': 'bg-green-100 text-green-800',
+                            'Cancelled': 'bg-red-100 text-red-800'
+                        } %}
+                        <span class="px-3 py-1 text-xs font-semibold rounded-full {{ status_classes.get(order.status, 'bg-gray-100 text-gray-800') }}">
+                            {{ order.status }}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm text-gray-900">{{ order.created_at.strftime('%Y-%m-%d') }}</div>
+                        <div class="text-xs text-gray-500">{{ order.created_at.strftime('%H:%M') }}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="flex items-center space-x-2">
+                            <button onclick="viewOrder({{ order.id }})" 
+                                    class="w-8 h-8 bg-blue-100 hover:bg-blue-200 text-blue-600 rounded-lg flex items-center justify-center transition-colors"
+                                    title="View Details">
+                                <i class="fas fa-eye text-sm"></i>
+                            </button>
+                            
+                            {% if order.status != 'Delivered' and order.status != 'Cancelled' %}
+                            <div class="relative">
+                                <button onclick="toggleStatusMenu({{ order.id }})" 
+                                        class="w-8 h-8 bg-green-100 hover:bg-green-200 text-green-600 rounded-lg flex items-center justify-center transition-colors"
+                                        title="Update Status">
+                                    <i class="fas fa-edit text-sm"></i>
+                                </button>
+                                <div id="status-menu-{{ order.id }}" class="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-xl border border-gray-200 z-10 hidden">
+                                    {% set current_status = order.status %}
+                                    {% if current_status != 'Pending' %}
+                                    <button onclick="updateOrderStatus({{ order.id }}, 'Pending')" 
+                                           class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-yellow-50 hover:text-yellow-600 rounded-t-lg transition-colors">
+                                        <i class="fas fa-clock mr-2 text-yellow-500"></i>Mark as Pending
+                                    </button>
+                                    {% endif %}
+                                    {% if current_status != 'Shipped' %}
+                                    <button onclick="updateOrderStatus({{ order.id }}, 'Shipped')" 
+                                           class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+                                        <i class="fas fa-truck mr-2 text-blue-500"></i>Mark as Shipped
+                                    </button>
+                                    {% endif %}
+                                    {% if current_status != 'Delivered' %}
+                                    <button onclick="updateOrderStatus({{ order.id }}, 'Delivered')" 
+                                           class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-green-50 hover:text-green-600 transition-colors">
+                                        <i class="fas fa-check-circle mr-2 text-green-500"></i>Mark as Delivered
+                                    </button>
+                                    {% endif %}
+                                    <hr class="my-1">
+                                    <button onclick="updateOrderStatus({{ order.id }}, 'Cancelled')" 
+                                           class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-red-50 hover:text-red-600 rounded-b-lg transition-colors">
+                                        <i class="fas fa-times-circle mr-2 text-red-500"></i>Cancel Order
+                                    </button>
+                                </div>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+        <!-- Mobile Card View -->
+        <div class="lg:hidden p-4 space-y-4" id="ordersMobileView">
+        {% for order in orders %}
+        <div class="order-row bg-gray-50 rounded-xl p-4 border border-gray-200" data-status="{{ order.status }}">
+            <div class="flex items-start justify-between mb-3">
+                <div>
+                    <span class="text-lg font-bold text-energy-primary">#{{ order.id }}</span>
+                    {% set status_classes = {
+                        'Pending': 'bg-yellow-100 text-yellow-800',
+                        'Shipped': 'bg-blue-100 text-blue-800',
+                        'Delivered': 'bg-green-100 text-green-800',
+                        'Cancelled': 'bg-red-100 text-red-800'
+                    } %}
+                    <span class="ml-2 px-2 py-1 text-xs font-semibold rounded-full {{ status_classes.get(order.status, 'bg-gray-100 text-gray-800') }}">
+                        {{ order.status }}
+                    </span>
+                </div>
+                <span class="text-lg font-bold text-green-600">${{ "%.2f"|format(order.total_amount) }}</span>
+            </div>
+            
+            <div class="mb-3">
+                <h3 class="text-base font-bold text-gray-900">{{ order.customer_name }}</h3>
+                <p class="text-sm text-gray-600">
+                    <i class="fas fa-phone mr-1"></i>{{ order.customer_phone }}
+                </p>
+                <p class="text-sm text-gray-600">
+                    <i class="fas fa-map-marker-alt mr-1"></i>{{ order.customer_address }}
+                </p>
+            </div>
+            
+            <div class="mb-3">
+                {% if order.items %}
+                    {% set items = order.items|from_json %}
+                    {% for item in items[:2] %}
+                        <div class="text-sm text-gray-600">
+                            <span class="font-semibold text-energy-primary">{{ item.quantity }}x</span> {{ item.name }}
+                        </div>
+                    {% endfor %}
+                    {% if items|length > 2 %}
+                        <div class="text-xs text-gray-500 mt-1">
+                            +{{ items|length - 2 }} more items
+                        </div>
+                    {% endif %}
+                {% endif %}
+            </div>
+            
+            <div class="flex items-center justify-between text-sm text-gray-500">
+                <span>{{ order.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
+                <div class="flex space-x-2">
+                    <button onclick="viewOrder({{ order.id }})" 
+                            class="px-3 py-1 bg-blue-500 text-white rounded-lg text-xs">
+                        View
+                    </button>
+                    {% if order.status != 'Delivered' and order.status != 'Cancelled' %}
+                    <div class="relative">
+                        <button onclick="toggleStatusMenu({{ order.id }})" 
+                                class="px-3 py-1 bg-green-500 hover:bg-green-600 text-white rounded-lg text-xs transition-colors">
+                            Update
+                        </button>
+                        <!-- Mobile Status Menu -->
+                        <div id="status-menu-{{ order.id }}" class="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl border border-gray-200 z-10 hidden">
+                            {% set current_status = order.status %}
+                            {% if current_status != 'Pending' %}
+                            <button onclick="updateOrderStatus({{ order.id }}, 'Pending')" 
+                                   class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-yellow-50 hover:text-yellow-600 rounded-t-lg transition-colors">
+                                <i class="fas fa-clock mr-2 text-yellow-500"></i>Pending
+                            </button>
+                            {% endif %}
+                            {% if current_status != 'Shipped' %}
+                            <button onclick="updateOrderStatus({{ order.id }}, 'Shipped')" 
+                                   class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+                                <i class="fas fa-truck mr-2 text-blue-500"></i>Shipped
+                            </button>
+                            {% endif %}
+                            {% if current_status != 'Delivered' %}
+                            <button onclick="updateOrderStatus({{ order.id }}, 'Delivered')" 
+                                   class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-green-50 hover:text-green-600 transition-colors">
+                                <i class="fas fa-check-circle mr-2 text-green-500"></i>Delivered
+                            </button>
+                            {% endif %}
+                            <hr class="my-1">
+                            <button onclick="updateOrderStatus({{ order.id }}, 'Cancelled')" 
+                                   class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-red-50 hover:text-red-600 rounded-b-lg transition-colors">
+                                <i class="fas fa-times-circle mr-2 text-red-500"></i>Cancel
+                            </button>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- No Orders Found Message (Hidden by default) -->
+<div id="noOrdersMessage" class="hidden bg-white rounded-2xl shadow-lg p-12 text-center">
+    <div class="w-32 h-32 mx-auto mb-6 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full flex items-center justify-center">
+        <i class="fas fa-search text-6xl text-gray-400"></i>
+    </div>
+    <h2 class="text-3xl font-bold text-gray-800 mb-4">No Orders Found</h2>
+    <p class="text-gray-600 mb-8 max-w-md mx-auto">
+        No orders match your current filters. Try adjusting your search criteria or clearing the filters.
+    </p>
+    <button onclick="clearAllFilters()" 
+            class="inline-flex items-center px-6 py-3 bg-energy-primary hover:bg-energy-secondary text-white font-bold rounded-xl transition-colors">
+        <i class="fas fa-eraser mr-2"></i>
+        Clear All Filters
+    </button>
+</div>
+
+<!-- Order Details Modal -->
+<div id="orderModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div class="p-6 border-b border-gray-200">
+            <div class="flex items-center justify-between">
+                <h2 class="text-2xl font-bold text-gray-800">Order Details</h2>
+                <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600 transition-colors">
+                    <i class="fas fa-times text-2xl"></i>
+                </button>
+            </div>
+        </div>
+        
+        <div id="orderDetails" class="p-6">
+            <!-- Order details will be populated by JavaScript -->
+        </div>
+    </div>
+</div>
+
+{% else %}
+<!-- Empty State -->
+<div class="bg-white rounded-2xl shadow-lg p-12 text-center">
+    <div class="w-32 h-32 mx-auto mb-6 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full flex items-center justify-center">
+        <i class="fas fa-shopping-cart text-6xl text-gray-400"></i>
+    </div>
+    <h2 class="text-3xl font-bold text-gray-800 mb-4">No Orders Yet</h2>
+    <p class="text-gray-600 mb-8 max-w-md mx-auto">
+        Orders from customers will appear here. Once customers start purchasing your products, you'll be able to track and manage their orders.
+    </p>
+    <a href="{{ url_for('admin_products') }}" class="inline-flex items-center px-6 py-3 gradient-energy text-white font-bold rounded-xl hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-300">
+        <i class="fas fa-box mr-2"></i>
+        Manage Products
+    </a>
+</div>
+{% endif %}
+
+<script>
+// AJAX Orders Management System
+class OrdersManager {
+    constructor() {
+        this.currentFilters = {
+            status: 'all',
+            date_from: '',
+            date_to: '',
+            search: ''
+        };
+        this.isLoading = false;
+        this.debounceTimeout = null;
+        this.originalStats = null;
+        
+        this.initializeEventListeners();
+        this.storeOriginalStats();
+    }
+    
+    storeOriginalStats() {
+        // Store original stats from server-side rendered data
+        const totalOrders = document.querySelectorAll('.order-row').length;
+        this.originalStats = {
+            total: totalOrders,
+            totalRevenue: 0 // Will be calculated if needed
+        };
+    }
+    
+    initializeEventListeners() {
+        // Status filter change
+        document.getElementById('statusFilter').addEventListener('change', (e) => {
+            this.currentFilters.status = e.target.value;
+            this.debouncedApplyFilters();
+        });
+        
+        // Date filters change
+        document.getElementById('dateFrom').addEventListener('change', (e) => {
+            this.currentFilters.date_from = e.target.value;
+            this.debouncedApplyFilters();
+        });
+        
+        document.getElementById('dateTo').addEventListener('change', (e) => {
+            this.currentFilters.date_to = e.target.value;
+            this.debouncedApplyFilters();
+        });
+        
+        // Search input with debounce
+        const searchInput = document.getElementById('searchInput');
+        searchInput.addEventListener('input', (e) => {
+            this.currentFilters.search = e.target.value;
+            this.updateSearchClearButton(e.target.value);
+            this.debouncedApplyFilters(500); // Longer debounce for search
+        });
+        
+        // Apply filters button
+        document.getElementById('applyFilters').addEventListener('click', () => {
+            this.applyFilters();
+        });
+        
+        // Enter key in search
+        searchInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                this.applyFilters();
+            }
+        });
+    }
+    
+    debouncedApplyFilters(delay = 300) {
+        if (this.debounceTimeout) {
+            clearTimeout(this.debounceTimeout);
+        }
+        
+        this.debounceTimeout = setTimeout(() => {
+            this.applyFilters();
+        }, delay);
+    }
+    
+    async applyFilters() {
+        if (this.isLoading) return;
+        
+        this.showLoading(true);
+        this.updateFilterStatus();
+        
+        try {
+            const response = await fetch('/admin/orders/filter', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(this.currentFilters)
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                this.updateOrdersTable(data.orders);
+                this.updateStats(data.stats);
+                this.updateFilterSummary(data.stats);
+                this.showSuccessMessage(data.message);
+            } else {
+                this.showErrorMessage(data.message || 'Failed to filter orders');
+            }
+            
+        } catch (error) {
+            console.error('Filter error:', error);
+            this.showErrorMessage('Failed to filter orders. Please try again.');
+        } finally {
+            this.showLoading(false);
+        }
+    }
+    
+    updateOrdersTable(orders) {
+        if (orders.length === 0) {
+            this.showNoOrdersMessage();
+            return;
+        }
+        
+        this.hideNoOrdersMessage();
+        
+        // Update desktop table
+        const desktopTableBody = document.querySelector('#ordersDesktopTable tbody');
+        if (desktopTableBody) {
+            desktopTableBody.innerHTML = this.renderDesktopRows(orders);
+        }
+        
+        // Update mobile view
+        const mobileView = document.getElementById('ordersMobileView');
+        if (mobileView) {
+            mobileView.innerHTML = this.renderMobileCards(orders);
+        }
+        
+        // Animate new content
+        this.animateNewContent();
+    }
+    
+    renderDesktopRows(orders) {
+        return orders.map(order => `
+            <tr class="order-row hover:bg-gray-50 transition-colors animate-fadeIn" data-status="${order.status}">
+                <td class="px-6 py-4 whitespace-nowrap">
+                    <span class="text-sm font-bold text-energy-primary">#${order.id}</span>
+                </td>
+                <td class="px-6 py-4">
+                    <div class="flex items-center">
+                        <div class="w-10 h-10 bg-energy-primary rounded-full flex items-center justify-center mr-3">
+                            <span class="text-sm font-bold text-white">${order.customer_initial}</span>
+                        </div>
+                        <div>
+                            <div class="text-sm font-bold text-gray-900">${order.customer_name}</div>
+                            <div class="text-xs text-gray-500">
+                                <i class="fas fa-phone mr-1"></i>${order.customer_phone}
+                            </div>
+                            <div class="text-xs text-gray-500">
+                                <i class="fas fa-map-marker-alt mr-1"></i>
+                                ${order.customer_address.length > 40 ? order.customer_address.substring(0, 40) + '...' : order.customer_address}
+                            </div>
+                        </div>
+                    </div>
+                </td>
+                <td class="px-6 py-4">
+                    ${this.renderOrderItems(order.items)}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                    <span class="text-lg font-bold text-green-600">$${order.total_amount.toFixed(2)}</span>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                    ${this.renderStatusBadge(order.status)}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                    <div class="text-sm text-gray-900">${order.created_date}</div>
+                    <div class="text-xs text-gray-500">${order.created_time}</div>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                    ${this.renderActionButtons(order)}
+                </td>
+            </tr>
+        `).join('');
+    }
+    
+    renderMobileCards(orders) {
+        return orders.map(order => `
+            <div class="order-row bg-gray-50 rounded-xl p-4 border border-gray-200 animate-slideUp" data-status="${order.status}">
+                <div class="flex items-start justify-between mb-3">
+                    <div>
+                        <span class="text-lg font-bold text-energy-primary">#${order.id}</span>
+                        ${this.renderStatusBadge(order.status)}
+                    </div>
+                    <span class="text-lg font-bold text-green-600">$${order.total_amount.toFixed(2)}</span>
+                </div>
+                
+                <div class="mb-3">
+                    <h3 class="text-base font-bold text-gray-900">${order.customer_name}</h3>
+                    <p class="text-sm text-gray-600">
+                        <i class="fas fa-phone mr-1"></i>${order.customer_phone}
+                    </p>
+                    <p class="text-sm text-gray-600">
+                        <i class="fas fa-map-marker-alt mr-1"></i>${order.customer_address}
+                    </p>
+                </div>
+                
+                <div class="mb-3">
+                    ${this.renderOrderItems(order.items)}
+                </div>
+                
+                <div class="flex items-center justify-between text-sm text-gray-500">
+                    <span>${order.created_date} ${order.created_time}</span>
+                    ${this.renderMobileActions(order)}
+                </div>
+            </div>
+        `).join('');
+    }
+    
+    renderOrderItems(items) {
+        if (!items || items.length === 0) {
+            return '<span class="text-sm text-gray-500">No items data</span>';
+        }
+        
+        let html = '';
+        const regularItems = items.filter(item => !item.more_count);
+        const moreCount = items.find(item => item.more_count);
+        
+        regularItems.forEach(item => {
+            html += `
+                <div class="text-sm text-gray-600">
+                    <span class="font-semibold text-energy-primary">${item.quantity}x</span> ${item.name}
+                </div>
+            `;
+        });
+        
+        if (moreCount) {
+            html += `
+                <div class="text-xs text-gray-500 mt-1">
+                    +${moreCount.more_count} more items
+                </div>
+            `;
+        }
+        
+        return html;
+    }
+    
+    renderStatusBadge(status) {
+        const statusClasses = {
+            'Pending': 'bg-yellow-100 text-yellow-800',
+            'Shipped': 'bg-blue-100 text-blue-800',
+            'Delivered': 'bg-green-100 text-green-800',
+            'Completed': 'bg-green-100 text-green-800',
+            'Cancelled': 'bg-red-100 text-red-800'
+        };
+        
+        const className = statusClasses[status] || 'bg-gray-100 text-gray-800';
+        return `<span class="ml-2 px-3 py-1 text-xs font-semibold rounded-full ${className}">${status}</span>`;
+    }
+    
+    renderActionButtons(order) {
+        const canUpdate = order.status !== 'Delivered' && order.status !== 'Cancelled';
+        
+        let html = `
+            <div class="flex items-center space-x-2">
+                <button onclick="viewOrder(${order.id})" 
+                        class="w-8 h-8 bg-blue-100 hover:bg-blue-200 text-blue-600 rounded-lg flex items-center justify-center transition-colors"
+                        title="View Details">
+                    <i class="fas fa-eye text-sm"></i>
+                </button>
+        `;
+        
+        if (canUpdate) {
+            html += `
+                <div class="relative">
+                    <button onclick="toggleStatusMenu(${order.id})" 
+                            class="w-8 h-8 bg-green-100 hover:bg-green-200 text-green-600 rounded-lg flex items-center justify-center transition-colors"
+                            title="Update Status">
+                        <i class="fas fa-edit text-sm"></i>
+                    </button>
+                    ${this.renderStatusMenu(order)}
+                </div>
+            `;
+        }
+        
+        html += '</div>';
+        return html;
+    }
+    
+    renderMobileActions(order) {
+        const canUpdate = order.status !== 'Delivered' && order.status !== 'Cancelled';
+        
+        let html = `
+            <div class="flex space-x-2">
+                <button onclick="viewOrder(${order.id})" 
+                        class="px-3 py-1 bg-blue-500 text-white rounded-lg text-xs">
+                    View
+                </button>
+        `;
+        
+        if (canUpdate) {
+            html += `
+                <div class="relative">
+                    <button onclick="toggleStatusMenu(${order.id})" 
+                            class="px-3 py-1 bg-green-500 hover:bg-green-600 text-white rounded-lg text-xs transition-colors">
+                        Update
+                    </button>
+                    ${this.renderStatusMenu(order)}
+                </div>
+            `;
+        }
+        
+        html += '</div>';
+        return html;
+    }
+    
+    renderStatusMenu(order) {
+        const currentStatus = order.status;
+        const statuses = [
+            { value: 'Pending', icon: 'fa-clock', color: 'yellow' },
+            { value: 'Shipped', icon: 'fa-truck', color: 'blue' },
+            { value: 'Delivered', icon: 'fa-check-circle', color: 'green' }
+        ];
+        
+        let menuItems = '';
+        statuses.forEach(status => {
+            if (status.value !== currentStatus) {
+                menuItems += `
+                    <button onclick="updateOrderStatus(${order.id}, '${status.value}')" 
+                           class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-${status.color}-50 hover:text-${status.color}-600 transition-colors">
+                        <i class="fas ${status.icon} mr-2 text-${status.color}-500"></i>Mark as ${status.value}
+                    </button>
+                `;
+            }
+        });
+        
+        menuItems += `
+            <hr class="my-1">
+            <button onclick="updateOrderStatus(${order.id}, 'Cancelled')" 
+                   class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-red-50 hover:text-red-600 rounded-b-lg transition-colors">
+                <i class="fas fa-times-circle mr-2 text-red-500"></i>Cancel Order
+            </button>
+        `;
+        
+        return `
+            <div id="status-menu-${order.id}" class="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-xl border border-gray-200 z-10 hidden">
+                ${menuItems}
+            </div>
+        `;
+    }
+    
+    // UI Helper Methods
+    showLoading(show) {
+        const loadingIndicator = document.getElementById('loadingIndicator');
+        const applyButton = document.getElementById('applyFilters');
+        
+        this.isLoading = show;
+        
+        if (show) {
+            loadingIndicator.classList.remove('hidden');
+            applyButton.disabled = true;
+            applyButton.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Applying...';
+        } else {
+            loadingIndicator.classList.add('hidden');
+            applyButton.disabled = false;
+            applyButton.innerHTML = '<i class="fas fa-search mr-2"></i>Apply Filters';
+        }
+    }
+    
+    showNoOrdersMessage() {
+        document.getElementById('ordersTableContainer').classList.add('hidden');
+        document.getElementById('noOrdersMessage').classList.remove('hidden');
+    }
+    
+    hideNoOrdersMessage() {
+        document.getElementById('ordersTableContainer').classList.remove('hidden');
+        document.getElementById('noOrdersMessage').classList.add('hidden');
+    }
+    
+    updateStats(stats) {
+        const title = document.getElementById('ordersTableTitle');
+        title.innerHTML = `
+            <i class="fas fa-list text-energy-primary mr-2"></i>
+            Orders (${stats.total})
+        `;
+        
+        const totalRevenue = document.querySelector('#totalRevenue span');
+        const avgOrderValue = document.querySelector('#avgOrderValue span');
+        const resultsStats = document.getElementById('filterResultsStats');
+        
+        if (stats.total > 0) {
+            const avgValue = stats.total_revenue / stats.total;
+            totalRevenue.textContent = `$${stats.total_revenue.toFixed(2)}`;
+            avgOrderValue.textContent = `$${avgValue.toFixed(2)} avg`;
+            resultsStats.classList.remove('hidden');
+        } else {
+            resultsStats.classList.add('hidden');
+        }
+        
+        this.updateStatsCards(stats);
+    }
+    
+    updateStatsCards(stats) {
+        const statsSelectors = [
+            '.grid .bg-white:nth-child(1) .text-2xl',
+            '.grid .bg-white:nth-child(2) .text-2xl', 
+            '.grid .bg-white:nth-child(3) .text-2xl',
+            '.grid .bg-white:nth-child(4) .text-2xl'
+        ];
+        
+        const statsValues = [stats.total, stats.pending, stats.shipped, stats.delivered];
+        
+        statsSelectors.forEach((selector, index) => {
+            const element = document.querySelector(selector);
+            if (element && statsValues[index] !== undefined) {
+                element.textContent = statsValues[index].toLocaleString();
+            }
+        });
+    }
+    
+    updateFilterSummary(stats) {
+        const hasFilters = this.hasActiveFilters();
+        const filterSummary = document.getElementById('filterSummary');
+        const activeFiltersText = document.getElementById('activeFiltersText');
+        
+        if (hasFilters) {
+            filterSummary.classList.remove('hidden');
+            activeFiltersText.textContent = this.buildFilterSummaryText(stats);
+        } else {
+            filterSummary.classList.add('hidden');
+        }
+    }
+    
+    buildFilterSummaryText(stats) {
+        const filters = [];
+        
+        if (this.currentFilters.status !== 'all') {
+            filters.push(`Status: ${this.currentFilters.status}`);
+        }
+        
+        if (this.currentFilters.date_from || this.currentFilters.date_to) {
+            if (this.currentFilters.date_from && this.currentFilters.date_to) {
+                filters.push(`Date: ${this.currentFilters.date_from} to ${this.currentFilters.date_to}`);
+            } else if (this.currentFilters.date_from) {
+                filters.push(`From: ${this.currentFilters.date_from}`);
+            } else {
+                filters.push(`Until: ${this.currentFilters.date_to}`);
+            }
+        }
+        
+        if (this.currentFilters.search) {
+            filters.push(`Search: "${this.currentFilters.search}"`);
+        }
+        
+        return `Active filters: ${filters.join(', ')} • ${stats.total} orders found`;
+    }
+    
+    hasActiveFilters() {
+        return this.currentFilters.status !== 'all' || 
+               this.currentFilters.date_from || 
+               this.currentFilters.date_to || 
+               this.currentFilters.search.trim();
+    }
+    
+    updateFilterStatus() {
+        const filterStatus = document.getElementById('filterStatus');
+        const statusText = filterStatus.querySelector('span');
+        
+        if (this.hasActiveFilters()) {
+            statusText.textContent = 'Applying filters...';
+        } else {
+            statusText.textContent = 'Showing all orders';
+        }
+    }
+    
+    updateSearchClearButton(value) {
+        const clearButton = document.getElementById('clearSearch');
+        if (value.trim()) {
+            clearButton.classList.remove('hidden');
+        } else {
+            clearButton.classList.add('hidden');
+        }
+    }
+    
+    animateNewContent() {
+        const rows = document.querySelectorAll('.animate-fadeIn, .animate-slideUp');
+        rows.forEach((row, index) => {
+            row.style.opacity = '0';
+            row.style.transform = 'translateY(10px)';
+            
+            setTimeout(() => {
+                row.style.transition = 'all 0.3s ease-out';
+                row.style.opacity = '1';
+                row.style.transform = 'translateY(0)';
+            }, index * 50);
+        });
+    }
+    
+    showSuccessMessage(message) {
+        console.log('Success:', message);
+    }
+    
+    showErrorMessage(message) {
+        console.error('Error:', message);
+        if (message !== 'Failed to filter orders. Please try again.') {
+            alert(`Error: ${message}`);
+        }
+    }
+}
+
+// Global functions and initialization
+let ordersManager;
+
+document.addEventListener('DOMContentLoaded', function() {
+    ordersManager = new OrdersManager();
+});
+
+function toggleFilterPanel() {
+    const panel = document.getElementById('filterPanel');
+    const button = document.getElementById('toggleFilters');
+    const icon = button.querySelector('i');
+    
+    panel.classList.toggle('hidden');
+    
+    if (panel.classList.contains('hidden')) {
+        icon.className = 'fas fa-chevron-down text-sm';
+    } else {
+        icon.className = 'fas fa-chevron-up text-sm';
+    }
+}
+
+function applyQuickFilter(period) {
+    if (!ordersManager) return;
+    
+    const today = new Date();
+    let startDate = '';
+    
+    switch (period) {
+        case 'today':
+            startDate = today.toISOString().split('T')[0];
+            ordersManager.currentFilters.date_from = startDate;
+            ordersManager.currentFilters.date_to = startDate;
+            break;
+            
+        case 'week':
+            const weekAgo = new Date(today);
+            weekAgo.setDate(today.getDate() - 7);
+            ordersManager.currentFilters.date_from = weekAgo.toISOString().split('T')[0];
+            ordersManager.currentFilters.date_to = today.toISOString().split('T')[0];
+            break;
+            
+        case 'month':
+            const monthAgo = new Date(today);
+            monthAgo.setMonth(today.getMonth() - 1);
+            ordersManager.currentFilters.date_from = monthAgo.toISOString().split('T')[0];
+            ordersManager.currentFilters.date_to = today.toISOString().split('T')[0];
+            break;
+    }
+    
+    document.getElementById('dateFrom').value = ordersManager.currentFilters.date_from;
+    document.getElementById('dateTo').value = ordersManager.currentFilters.date_to;
+    
+    ordersManager.applyFilters();
+}
+
+function clearSearch() {
+    if (!ordersManager) return;
+    
+    document.getElementById('searchInput').value = '';
+    ordersManager.currentFilters.search = '';
+    ordersManager.updateSearchClearButton('');
+    ordersManager.debouncedApplyFilters();
+}
+
+function clearAllFilters() {
+    if (!ordersManager) return;
+    
+    ordersManager.currentFilters = {
+        status: 'all',
+        date_from: '',
+        date_to: '',
+        search: ''
+    };
+    
+    document.getElementById('statusFilter').value = 'all';
+    document.getElementById('dateFrom').value = '';
+    document.getElementById('dateTo').value = '';
+    document.getElementById('searchInput').value = '';
+    ordersManager.updateSearchClearButton('');
+    
+    ordersManager.applyFilters();
+}
+
+function applyFilters() {
+    if (ordersManager) {
+        ordersManager.applyFilters();
+    }
+}
+    
+    if (!dateFrom && !dateTo) {
+        applyCurrentFilters();
+        return;
+    }
+    
+    const rows = document.querySelectorAll('.order-row');
+    
+    rows.forEach(row => {
+        const dateCell = row.querySelector('td:nth-last-child(2), .order-row > div:last-child span');
+        if (!dateCell) return;
+        
+        const orderDateText = dateCell.textContent.trim().split(' ')[0]; // Extract date part
+        const orderDate = new Date(orderDateText);
+        
+        let showRow = true;
+        
+        if (dateFrom && orderDate < new Date(dateFrom)) {
+            showRow = false;
+        }
+        
+        if (dateTo && orderDate > new Date(dateTo)) {
+            showRow = false;
+        }
+        
+        if (showRow && row.style.display !== 'none') {
+            row.style.display = '';
+        } else if (!showRow) {
+            row.style.display = 'none';
+        }
+    });
+    
+    updateVisibleCount();
+}
+
+function searchOrders() {
+    const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+    const rows = document.querySelectorAll('.order-row');
+    
+    rows.forEach(row => {
+        const text = row.textContent.toLowerCase();
+        if (text.includes(searchTerm)) {
+            // Only show if not hidden by other filters
+            if (!isHiddenByOtherFilters(row)) {
+                row.style.display = '';
+            }
+        } else {
+            row.style.display = 'none';
+        }
+    });
+    
+    updateVisibleCount();
+}
+
+function isHiddenByOtherFilters(row) {
+    const statusFilter = document.getElementById('statusFilter').value;
+    const dateFrom = document.getElementById('dateFrom').value;
+    const dateTo = document.getElementById('dateTo').value;
+    
+    // Check status filter
+    if (statusFilter !== 'all' && row.dataset.status !== statusFilter) {
+        return true;
+    }
+    
+    // Check date filter
+    if (dateFrom || dateTo) {
+        const dateCell = row.querySelector('td:nth-last-child(2), .order-row > div:last-child span');
+        if (dateCell) {
+            const orderDateText = dateCell.textContent.trim().split(' ')[0];
+            const orderDate = new Date(orderDateText);
+            
+            if (dateFrom && orderDate < new Date(dateFrom)) {
+                return true;
+            }
+            
+            if (dateTo && orderDate > new Date(dateTo)) {
+                return true;
+            }
+        }
+    }
+    
+    return false;
+}
+
+function applyCurrentFilters() {
+    const statusFilter = document.getElementById('statusFilter').value;
+    const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+    
+    filterOrders(statusFilter);
+    if (searchTerm) {
+        searchOrders();
+    }
+    filterByDate();
+}
+
+function clearFilters() {
+    document.getElementById('statusFilter').value = 'all';
+    document.getElementById('dateFrom').value = '';
+    document.getElementById('dateTo').value = '';
+    document.getElementById('searchInput').value = '';
+    
+    const rows = document.querySelectorAll('.order-row');
+    rows.forEach(row => {
+        row.style.display = '';
+    });
+    
+    updateVisibleCount();
+}
+
+function updateVisibleCount(count = null) {
+    if (count === null) {
+        const visibleRows = document.querySelectorAll('.order-row[style=""], .order-row:not([style])');
+        count = visibleRows.length;
+    }
+    
+    const tableHeader = document.querySelector('.bg-gradient-to-r h2');
+    if (tableHeader) {
+        const totalOrders = document.querySelectorAll('.order-row').length;
+        tableHeader.innerHTML = `
+            <i class="fas fa-list text-energy-primary mr-2"></i>
+            Orders (${count} of ${totalOrders} shown)
+        `;
+    }
+}
+
+// Enhanced status update with confirmation
+async function updateOrderStatus(orderId, newStatus) {
+    const confirmMessage = `Are you sure you want to change this order to "${newStatus}"?`;
+    
+    if (!confirm(confirmMessage)) {
+        return;
+    }
+    
+    // Close the menu
+    document.getElementById(`status-menu-${orderId}`).classList.add('hidden');
+    
+    // Show loading state
+    const button = document.querySelector(`button[onclick="toggleStatusMenu(${orderId})"]`);
+    const originalContent = button.innerHTML;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin text-sm"></i>';
+    button.disabled = true;
+    
+    try {
+        const response = await fetch(`/admin/orders/update_status/${orderId}?status=${newStatus}`, {
+            method: 'GET',
+        });
+        
+        if (response.ok) {
+            // Reload the page to see updated status
+            window.location.reload();
+        } else {
+            throw new Error('Failed to update status');
+        }
+    } catch (error) {
+        console.error('Error updating order status:', error);
+        alert('Failed to update order status. Please try again.');
+        
+        // Restore button
+        button.innerHTML = originalContent;
+        button.disabled = false;
+    }
+}
+
+function toggleStatusMenu(orderId) {
+    const menu = document.getElementById(`status-menu-${orderId}`);
+    const allMenus = document.querySelectorAll('[id^="status-menu-"]');
+    
+    // Close all other menus
+    allMenus.forEach(m => {
+        if (m.id !== `status-menu-${orderId}`) {
+            m.classList.add('hidden');
+        }
+    });
+    
+    // Toggle current menu
+    menu.classList.toggle('hidden');
+}
+
+function viewOrder(orderId) {
+    // This would typically fetch order details via AJAX
+    // For now, show a placeholder modal
+    const modal = document.getElementById('orderModal');
+    const details = document.getElementById('orderDetails');
+    
+    details.innerHTML = `
+        <div class="text-center py-8">
+            <i class="fas fa-spinner fa-spin text-4xl text-energy-primary mb-4"></i>
+            <p class="text-gray-600">Loading order details for #${orderId}...</p>
+        </div>
+    `;
+    
+    modal.classList.remove('hidden');
+    
+    // Simulate loading delay
+    setTimeout(() => {
+        details.innerHTML = `
+            <div class="space-y-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <h3 class="text-lg font-bold text-gray-800 mb-3">Customer Information</h3>
+                        <div class="space-y-2 text-sm">
+                            <p><strong>Name:</strong> <span class="text-gray-600">Loading...</span></p>
+                            <p><strong>Phone:</strong> <span class="text-gray-600">Loading...</span></p>
+                            <p><strong>Address:</strong> <span class="text-gray-600">Loading...</span></p>
+                        </div>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-bold text-gray-800 mb-3">Order Summary</h3>
+                        <div class="space-y-2 text-sm">
+                            <p><strong>Order ID:</strong> #${orderId}</p>
+                            <p><strong>Status:</strong> <span class="px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs">Pending</span></p>
+                            <p><strong>Total:</strong> <span class="text-green-600 font-bold">$0.00</span></p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div>
+                    <h3 class="text-lg font-bold text-gray-800 mb-3">Order Items</h3>
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <p class="text-gray-600">Order details would be loaded here...</p>
+                    </div>
+                </div>
+            </div>
+        `;
+    }, 1000);
+}
+
+function closeModal() {
+    document.getElementById('orderModal').classList.add('hidden');
+}
+
+// Close modal when clicking outside
+document.getElementById('orderModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeModal();
+    }
+});
+
+// Close dropdowns when clicking outside
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('[onclick^="toggleStatusMenu"]')) {
+        const menus = document.querySelectorAll('[id^="status-menu-"]');
+        menus.forEach(menu => menu.classList.add('hidden'));
+    }
+});
+
+// Animate orders on page load
+document.addEventListener('DOMContentLoaded', function() {
+    const rows = document.querySelectorAll('.order-row');
+    rows.forEach((row, index) => {
+        setTimeout(() => {
+            row.style.opacity = '0';
+            row.style.transform = 'translateY(20px)';
+            row.style.transition = 'all 0.5s ease-out';
+            setTimeout(() => {
+                row.style.opacity = '1';
+                row.style.transform = 'translateY(0)';
+            }, 50);
+        }, index * 50);
+    });
+});
+</script>
+{% endblock %}

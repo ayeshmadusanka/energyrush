@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Admin Panel - EnergyRush{% endblock %}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'energy-primary': '#6366f1',
+                        'energy-secondary': '#f59e0b',
+                        'energy-accent': '#10b981',
+                        'energy-dark': '#0f172a',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .gradient-energy {
+            background: linear-gradient(135deg, #6366f1 0%, #f59e0b 100%);
+        }
+        .gradient-dark {
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+        }
+        .text-gradient {
+            background: linear-gradient(135deg, #6366f1 0%, #f59e0b 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+    </style>
+</head>
+<body class="font-['Inter'] bg-gray-50">
+    <div class="flex h-screen overflow-hidden">
+        <!-- Sidebar -->
+        <aside class="w-64 gradient-dark shadow-2xl flex flex-col">
+            <!-- Logo -->
+            <div class="p-6 border-b border-gray-700">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 bg-gradient-to-r from-energy-primary to-energy-secondary rounded-xl flex items-center justify-center">
+                        <i class="fas fa-bolt text-white text-xl"></i>
+                    </div>
+                    <div>
+                        <h4 class="text-white font-bold text-lg">EnergyRush</h4>
+                        <p class="text-gray-400 text-xs">Admin Panel</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Navigation -->
+            <nav class="flex-1 p-4 space-y-2">
+                <a href="{{ url_for('admin_dashboard') }}" 
+                   class="flex items-center space-x-3 px-4 py-3 rounded-xl text-gray-300 hover:bg-white/10 hover:text-white transition-all duration-300 {% if request.endpoint == 'admin_dashboard' %}bg-energy-primary text-white{% endif %}">
+                    <i class="fas fa-tachometer-alt w-5 text-center"></i>
+                    <span class="font-medium">Dashboard</span>
+                </a>
+                
+                <a href="{{ url_for('admin_products') }}" 
+                   class="flex items-center space-x-3 px-4 py-3 rounded-xl text-gray-300 hover:bg-white/10 hover:text-white transition-all duration-300 {% if request.endpoint in ['admin_products', 'admin_add_product', 'admin_edit_product'] %}bg-energy-primary text-white{% endif %}">
+                    <i class="fas fa-box w-5 text-center"></i>
+                    <span class="font-medium">Products</span>
+                </a>
+                
+                <a href="{{ url_for('admin_orders') }}" 
+                   class="flex items-center space-x-3 px-4 py-3 rounded-xl text-gray-300 hover:bg-white/10 hover:text-white transition-all duration-300 {% if request.endpoint == 'admin_orders' %}bg-energy-primary text-white{% endif %}">
+                    <i class="fas fa-shopping-cart w-5 text-center"></i>
+                    <span class="font-medium">Orders</span>
+                </a>
+                
+                <a href="{{ url_for('admin_forecasting') }}" 
+                   class="flex items-center space-x-3 px-4 py-3 rounded-xl text-gray-300 hover:bg-white/10 hover:text-white transition-all duration-300 {% if request.endpoint == 'admin_forecasting' %}bg-energy-primary text-white{% endif %}">
+                    <i class="fas fa-chart-line w-5 text-center"></i>
+                    <span class="font-medium">Forecasting</span>
+                </a>
+                
+                <div class="border-t border-gray-700 my-4"></div>
+                
+                <a href="{{ url_for('index') }}" target="_blank"
+                   class="flex items-center space-x-3 px-4 py-3 rounded-xl text-gray-300 hover:bg-white/10 hover:text-white transition-all duration-300">
+                    <i class="fas fa-external-link-alt w-5 text-center"></i>
+                    <span class="font-medium">View Website</span>
+                </a>
+            </nav>
+            
+            <!-- Footer -->
+            <div class="p-4 border-t border-gray-700">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 bg-energy-primary rounded-full flex items-center justify-center">
+                        <i class="fas fa-user-shield text-white"></i>
+                    </div>
+                    <div>
+                        <p class="text-white text-sm font-semibold">Administrator</p>
+                        <p class="text-gray-400 text-xs">Online</p>
+                    </div>
+                </div>
+            </div>
+        </aside>
+        
+        <!-- Main Content Area -->
+        <div class="flex-1 flex flex-col overflow-hidden">
+            <!-- Top Bar -->
+            <header class="bg-white shadow-sm border-b border-gray-200">
+                <div class="px-6 py-4 flex items-center justify-between">
+                    <div class="flex items-center space-x-4">
+                        <button onclick="toggleSidebar()" class="lg:hidden p-2 rounded-lg hover:bg-gray-100 transition-colors">
+                            <i class="fas fa-bars text-gray-600"></i>
+                        </button>
+                        <h1 class="text-2xl font-bold text-gray-800">
+                            {% block page_title %}Dashboard{% endblock %}
+                        </h1>
+                    </div>
+                    
+                    <div class="flex items-center space-x-4">
+                        <!-- Timezone Indicator -->
+                        <div class="hidden md:flex items-center space-x-2 text-sm text-gray-600 bg-gray-50 px-4 py-2 rounded-xl">
+                            <i class="fas fa-clock text-energy-primary"></i>
+                            <div class="text-center">
+                                <div class="current-colombo-time font-semibold text-gray-800"></div>
+                                <div class="text-xs text-gray-500">{{ timezone_name }} ({{ timezone_offset }})</div>
+                            </div>
+                        </div>
+                        <!-- Notifications -->
+                        <button class="relative p-2 rounded-lg hover:bg-gray-100 transition-colors">
+                            <i class="fas fa-bell text-gray-600"></i>
+                            <span class="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+                        </button>
+                        
+                        <!-- Settings -->
+                        <button class="p-2 rounded-lg hover:bg-gray-100 transition-colors">
+                            <i class="fas fa-cog text-gray-600"></i>
+                        </button>
+                        
+                        <!-- Current Time -->
+                        <div class="hidden md:block text-sm text-gray-500">
+                            <i class="far fa-clock mr-1"></i>
+                            <span id="current-time"></span>
+                        </div>
+                    </div>
+                </div>
+            </header>
+            
+            <!-- Main Content -->
+            <main class="flex-1 overflow-y-auto bg-gray-50 p-6">
+                <!-- Flash Messages -->
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        <div class="mb-6 space-y-3">
+                            {% for category, message in messages %}
+                                <div class="p-4 rounded-xl {{ 'bg-red-50 border-l-4 border-red-500 text-red-700' if category == 'error' else 'bg-green-50 border-l-4 border-green-500 text-green-700' }} animate-[slideIn_0.3s_ease-out]">
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex items-center space-x-3">
+                                            <i class="fas {{ 'fa-exclamation-circle' if category == 'error' else 'fa-check-circle' }} text-xl"></i>
+                                            <span class="font-medium">{{ message }}</span>
+                                        </div>
+                                        <button onclick="this.parentElement.parentElement.remove()" class="text-gray-400 hover:text-gray-600 transition-colors">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                {% endwith %}
+                
+                <!-- Page Content -->
+                {% block content %}{% endblock %}
+            </main>
+        </div>
+    </div>
+    
+    <!-- Chatbot Button -->
+    <button onclick="toggleChatbot()" class="fixed bottom-6 right-6 w-14 h-14 bg-gradient-to-r from-energy-primary to-energy-secondary rounded-full shadow-lg hover:shadow-xl transform hover:scale-110 transition-all duration-300 z-50 flex items-center justify-center group">
+        <i class="fas fa-robot text-white text-xl group-hover:animate-bounce"></i>
+    </button>
+    
+    <!-- Chatbot Window -->
+    <div id="chatbot-window" class="fixed bottom-24 right-6 w-96 h-[500px] bg-white rounded-2xl shadow-2xl hidden z-50 flex flex-col overflow-hidden">
+        <div class="gradient-energy p-4 text-white">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <i class="fas fa-robot text-2xl"></i>
+                    <div>
+                        <h3 class="font-bold">AI Assistant</h3>
+                        <p class="text-xs opacity-90">Powered by ML</p>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <button onclick="clearChatHistory()" class="text-white/80 hover:text-white transition-colors p-1 rounded" title="Clear chat history">
+                        <i class="fas fa-trash text-sm"></i>
+                    </button>
+                    <button onclick="toggleChatbot()" class="text-white/80 hover:text-white transition-colors">
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <div id="chat-messages" class="flex-1 p-4 overflow-y-auto bg-gray-50">
+            <div class="text-center text-gray-500 py-8">
+                <i class="fas fa-comments text-4xl mb-3 opacity-50"></i>
+                <p class="text-sm">Start a conversation with our AI assistant</p>
+            </div>
+        </div>
+        
+        <form id="chat-form" class="p-4 border-t border-gray-200">
+            <div class="flex space-x-2">
+                <input type="text" id="chat-input" placeholder="Type your message..." 
+                       class="flex-1 px-4 py-2 border-2 border-gray-200 rounded-xl focus:border-energy-primary focus:outline-none transition-colors">
+                <button type="submit" class="px-4 py-2 gradient-energy text-white rounded-xl hover:shadow-lg transition-all duration-300">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+            </div>
+        </form>
+    </div>
+    
+    <style>
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+        
+        /* Enhanced chatbot response styling */
+        .chatbot-response {
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        
+        .chatbot-response h1, .chatbot-response h2, .chatbot-response h3 {
+            color: #1e293b;
+            margin-top: 0;
+        }
+        
+        .chatbot-response h1 {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 8px;
+            border-bottom: 2px solid #e2e8f0;
+            padding-bottom: 4px;
+        }
+        
+        .chatbot-response h2 {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+        
+        .chatbot-response h3 {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        
+        .chatbot-response p {
+            margin-bottom: 8px;
+            color: #374151;
+        }
+        
+        .chatbot-response ul, .chatbot-response ol {
+            margin-left: 16px;
+            margin-bottom: 8px;
+        }
+        
+        .chatbot-response li {
+            margin-bottom: 4px;
+            color: #374151;
+        }
+        
+        .chatbot-response strong {
+            color: #1e293b;
+            font-weight: 600;
+        }
+        
+        .chatbot-response em {
+            font-style: italic;
+            color: #6b7280;
+        }
+        
+        .chatbot-response code {
+            background-color: #f1f5f9;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 12px;
+            color: #dc2626;
+        }
+        
+        .chatbot-response pre {
+            background-color: #f8fafc;
+            border: 1px solid #e2e8f0;
+            padding: 12px;
+            border-radius: 6px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 12px;
+            overflow-x: auto;
+            margin-bottom: 8px;
+            white-space: pre-wrap;
+        }
+        
+        .chatbot-response table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 8px;
+            font-size: 12px;
+        }
+        
+        .chatbot-response th, .chatbot-response td {
+            border: 1px solid #e2e8f0;
+            padding: 6px 8px;
+            text-align: left;
+        }
+        
+        .chatbot-response th {
+            background-color: #f8fafc;
+            font-weight: 600;
+        }
+        
+        /* Emoji and icons spacing */
+        .chatbot-response {
+            word-break: break-word;
+        }
+        
+        /* Loading animation */
+        .loading-dots {
+            display: inline-block;
+            position: relative;
+            width: 80px;
+            height: 20px;
+        }
+        
+        .loading-dots div {
+            position: absolute;
+            top: 8px;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #6366f1;
+            animation: loading-dots 1.2s linear infinite;
+        }
+        
+        .loading-dots div:nth-child(1) { left: 8px; animation-delay: 0s; }
+        .loading-dots div:nth-child(2) { left: 32px; animation-delay: -0.4s; }
+        .loading-dots div:nth-child(3) { left: 56px; animation-delay: -0.8s; }
+        
+        @keyframes loading-dots {
+            0%, 80%, 100% { transform: scale(0); }
+            40% { transform: scale(1); }
+        }
+        
+        .typing-indicator {
+            background: linear-gradient(-45deg, #f8f9fa, #e9ecef, #f8f9fa, #e9ecef);
+            background-size: 400% 400%;
+            animation: typing-gradient 2s ease infinite;
+        }
+        
+        @keyframes typing-gradient {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 640px) {
+            .chatbot-response {
+                font-size: 13px;
+            }
+            
+            .chatbot-response h1 {
+                font-size: 16px;
+            }
+            
+            .chatbot-response h2 {
+                font-size: 14px;
+            }
+        }
+    </style>
+    
+    <script>
+        // Timezone utility functions for Colombo
+        const COLOMBO_TIMEZONE = 'Asia/Colombo';
+        
+        function getCurrentColomboTime() {
+            return new Date().toLocaleString('en-GB', {
+                timeZone: COLOMBO_TIMEZONE,
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: false
+            });
+        }
+        
+        // Update current time display
+        function updateTimezoneElements() {
+            document.querySelectorAll('.current-colombo-time').forEach(element => {
+                element.textContent = getCurrentColomboTime();
+            });
+        }
+        
+        // Initialize timezone handling
+        document.addEventListener('DOMContentLoaded', function() {
+            updateTimezoneElements();
+            setInterval(updateTimezoneElements, 1000); // Update every second
+        });
+        
+        // Chatbot State Management
+        class ChatbotState {
+            constructor() {
+                this.messages = this.loadMessages();
+                this.isOpen = this.loadChatbotState();
+                this.isLoading = false;
+            }
+            
+            saveMessages() {
+                localStorage.setItem('energyrush_chat_messages', JSON.stringify(this.messages));
+            }
+            
+            loadMessages() {
+                const saved = localStorage.getItem('energyrush_chat_messages');
+                return saved ? JSON.parse(saved) : [];
+            }
+            
+            saveChatbotState() {
+                localStorage.setItem('energyrush_chat_open', this.isOpen.toString());
+            }
+            
+            loadChatbotState() {
+                const saved = localStorage.getItem('energyrush_chat_open');
+                return saved === 'true';
+            }
+            
+            addMessage(message, isUser = false, metadata = {}) {
+                const messageObj = {
+                    id: Date.now() + Math.random(),
+                    content: message,
+                    isUser: isUser,
+                    timestamp: new Date().toISOString(),
+                    metadata: metadata
+                };
+                this.messages.push(messageObj);
+                this.saveMessages();
+                return messageObj;
+            }
+            
+            clearMessages() {
+                this.messages = [];
+                this.saveMessages();
+            }
+        }
+        
+        // Initialize chatbot state
+        const chatbotState = new ChatbotState();
+        
+        // Restore chatbot state on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            restoreChatHistory();
+            if (chatbotState.isOpen) {
+                document.getElementById('chatbot-window').classList.remove('hidden');
+            }
+        });
+        
+        function restoreChatHistory() {
+            const messagesDiv = document.getElementById('chat-messages');
+            if (chatbotState.messages.length === 0) {
+                messagesDiv.innerHTML = `
+                    <div class="text-center text-gray-500 py-8">
+                        <i class="fas fa-comments text-4xl mb-3 opacity-50"></i>
+                        <p class="text-sm">Start a conversation with our AI assistant</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            messagesDiv.innerHTML = '';
+            chatbotState.messages.forEach(msg => {
+                if (msg.isUser) {
+                    messagesDiv.innerHTML += createUserMessage(msg.content);
+                } else {
+                    messagesDiv.innerHTML += createBotMessage(msg.content, msg.metadata);
+                }
+            });
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+        
+        function createUserMessage(message) {
+            return `
+                <div class="flex justify-end mb-4">
+                    <div class="max-w-xs px-4 py-2 bg-energy-primary text-white rounded-2xl rounded-br-none shadow-md">
+                        ${escapeHtml(message)}
+                    </div>
+                </div>
+            `;
+        }
+        
+        function createBotMessage(message, metadata = {}) {
+            const handlerInfo = metadata.handler ? `<div class="text-xs text-gray-500 mb-2">🤖 ${metadata.handler}</div>` : '';
+            return `
+                <div class="flex justify-start mb-4">
+                    <div class="max-w-lg px-4 py-3 bg-white border-2 border-gray-200 rounded-2xl rounded-bl-none shadow-md chatbot-response">
+                        ${handlerInfo}
+                        ${message}
+                    </div>
+                </div>
+            `;
+        }
+        
+        function createLoadingMessage() {
+            return `
+                <div class="flex justify-start mb-4" id="loading-message">
+                    <div class="max-w-lg px-4 py-3 bg-white border-2 border-gray-200 rounded-2xl rounded-bl-none shadow-md typing-indicator">
+                        <div class="flex items-center space-x-2">
+                            <div class="loading-dots">
+                                <div></div>
+                                <div></div>
+                                <div></div>
+                            </div>
+                            <span class="text-sm text-gray-600">AI is thinking...</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        // Toggle chatbot
+        function toggleChatbot() {
+            const chatbot = document.getElementById('chatbot-window');
+            chatbot.classList.toggle('hidden');
+            chatbotState.isOpen = !chatbot.classList.contains('hidden');
+            chatbotState.saveChatbotState();
+        }
+        
+        // Clear chat history
+        function clearChatHistory() {
+            chatbotState.clearMessages();
+            restoreChatHistory();
+        }
+        
+        // Chat functionality with loading animation
+        document.getElementById('chat-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const input = document.getElementById('chat-input');
+            const message = input.value.trim();
+            
+            if (!message || chatbotState.isLoading) return;
+            
+            chatbotState.isLoading = true;
+            
+            // Add user message to state and display
+            const messagesDiv = document.getElementById('chat-messages');
+            chatbotState.addMessage(message, true);
+            messagesDiv.innerHTML += createUserMessage(message);
+            
+            input.value = '';
+            input.disabled = true;
+            
+            // Add loading animation
+            messagesDiv.innerHTML += createLoadingMessage();
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+            
+            // Send to backend
+            try {
+                const response = await fetch('/admin/chatbot', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ message: message })
+                });
+                
+                const data = await response.json();
+                
+                // Remove loading message
+                const loadingMsg = document.getElementById('loading-message');
+                if (loadingMsg) loadingMsg.remove();
+                
+                // Add bot response
+                const botResponse = data.response || 'I understand your query. How else can I help you?';
+                const metadata = {
+                    handler: data.handler,
+                    type: data.type,
+                    adk_tool_used: data.adk_tool_used
+                };
+                
+                chatbotState.addMessage(botResponse, false, metadata);
+                messagesDiv.innerHTML += createBotMessage(botResponse, metadata);
+                
+            } catch (error) {
+                console.error('Chatbot error:', error);
+                
+                // Remove loading message
+                const loadingMsg = document.getElementById('loading-message');
+                if (loadingMsg) loadingMsg.remove();
+                
+                // Add error message
+                const errorResponse = "Sorry, I'm having trouble connecting. Please try again later.";
+                chatbotState.addMessage(errorResponse, false, { error: true });
+                messagesDiv.innerHTML += `
+                    <div class="flex justify-start mb-4">
+                        <div class="max-w-xs px-4 py-2 bg-red-50 text-red-600 rounded-2xl rounded-bl-none border border-red-200">
+                            <i class="fas fa-exclamation-triangle mr-2"></i>
+                            ${errorResponse}
+                        </div>
+                    </div>
+                `;
+            } finally {
+                chatbotState.isLoading = false;
+                input.disabled = false;
+                input.focus();
+                messagesDiv.scrollTop = messagesDiv.scrollHeight;
+            }
+        });
+    </script>
+    
+    {% block scripts %}{% endblock %}
+</body>
+</html>
