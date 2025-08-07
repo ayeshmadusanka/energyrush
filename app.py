@@ -414,8 +414,8 @@ def admin_orders_filter():
         query = Order.query
         
         # Apply status filter
-        status = data.get('status')
-        if status and status != 'all':
+        status = data.get('status', '')
+        if status and status != '' and status != 'all':
             query = query.filter(Order.status == status)
         
         # Apply date range filter
