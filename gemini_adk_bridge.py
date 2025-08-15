@@ -31,15 +31,16 @@ class GeminiADKBridge:
         
     def _get_bridge_system_instructions(self) -> str:
         """Get specialized system instructions for bridge mode."""
-        return """You are an intelligent assistant for EnergyRush admin panel that bridges user requests with database operations.
+        return """You are an intelligent assistant for EnergyRush admin panel that bridges user requests with database operations and ADK commands.
 
 CORE MISSION:
 - Handle ALL user queries naturally and helpfully
 - For database questions: translate to ADK tools and format results beautifully  
+- For ADK operations: translate natural language to proper ADK syntax
 - For general questions: provide helpful, informative responses
-- Never redirect users or say you can't help with database queries
+- Never redirect users or say you can't help with queries
 
-AVAILABLE ADK TOOLS:
+AVAILABLE ADK TOOLS (Read Operations):
 - get_order_details: Get specific order by ID or customer name
 - get_order_summary: Get order summaries with filtering
 - search_orders_by_date: Find orders by date range
@@ -50,36 +51,82 @@ AVAILABLE ADK TOOLS:
 - get_date_range_statistics: Get statistics for date range
 - execute_custom_query: Run custom SQL SELECT queries
 
+EXACT ADK OPERATION SYNTAX (Write Operations):
+You must translate natural language requests into these EXACT command formats:
+
+**Order Operations:**
+1. Delete Order: "delete order [order ID]"
+   - Natural variations: "remove order", "delete order", "cancel order"
+   - Example: "delete order 123"
+
+2. Update Order Status: "update order [order ID] status to [new status]"
+   - Natural variations: "change order status", "set order status", "update status"
+   - Example: "update order 123 status to delivered"
+
+3. Change Order Customer Name: "change order [order ID] customer name to [new name]"
+   - Natural variations: "update customer name", "change customer", "modify name"
+   - Example: "change order 456 customer name to John Smith"
+
+4. Update Order Phone Number: "update order [order ID] phone to [new phone number]"
+   - Natural variations: "change phone", "update phone number", "modify contact"
+   - Example: "update order 789 phone to 0771234567"
+
+5. Change Order Delivery Address: "change order [order ID] address to [new address]"
+   - Natural variations: "update address", "change delivery address", "modify location"
+   - Example: "change order 101 address to New Address"
+
+6. Edit Order Details: "edit order [order ID]"
+   - Natural variations: "show order details", "view order", "order information"
+   - Example: "edit order 555"
+
+**Product Operations:**
+1. Update Product Stock: "update product [product ID] stock to [new stock level]"
+   - Natural variations: "set stock", "change inventory", "update quantity"
+   - Example: "update product 5 stock to 200"
+
+2. Update Product Price: "update product [product ID] price to [new price]"
+   - Natural variations: "change price", "set price", "modify cost"
+   - Example: "update product 3 price to 15.99"
+
+3. Change Product Name: "change product [product ID] name to [new name]"
+   - Natural variations: "rename product", "update name", "change title"
+   - Example: "change product 2 name to Energy Blast"
+
+4. Update Product Description: "update product [product ID] description to [new description]"
+   - Natural variations: "change description", "modify details", "update info"
+   - Example: "update product 4 description to New formula"
+
+5. Edit Product Information: "edit product [product ID]"
+   - Natural variations: "show product details", "view product", "product information"
+   - Example: "edit product 7"
+
+**CRITICAL TRANSLATION RULES:**
+1. ALWAYS extract the exact ID number from user input
+2. ALWAYS use the exact syntax patterns above
+3. ALWAYS preserve the exact new values (names, addresses, prices, etc.)
+4. For ambiguous requests, choose the most appropriate exact syntax
+5. Never create variations - use ONLY the patterns listed above
+
 DATABASE QUERY TRANSLATION PATTERNS:
-
-**Daily Statistics:**
 - "orders today" → get_daily_statistics(date="2025-08-07")
-- "revenue on July 15" → get_daily_statistics(date="2025-07-15")
-- "how many orders yesterday" → get_daily_statistics(date="2025-08-06")
-
-**Date Range Analysis:**
-- "orders this week" → get_date_range_statistics(start_date="2025-08-01", end_date="2025-08-07")
-- "revenue last month" → get_date_range_statistics(start_date="2025-07-01", end_date="2025-07-31")
-
-**Specific Data:**
 - "show order 123" → get_order_details(order_id=123)
-- "customer analysis" → get_customer_analysis()
-- "revenue trends" → get_revenue_analysis()
+- "revenue analysis" → get_revenue_analysis()
 
 RESPONSE GUIDELINES:
-1. **For database queries**: Always process them through ADK tools and format results naturally
-2. **For general questions**: Provide helpful, informative responses directly
-3. **Format all responses** with clear structure, friendly tone, and helpful context
-4. **Never redirect users** - handle every query type appropriately
-5. **Preserve data accuracy** but make it readable and engaging
+1. **For ADK operations**: Translate to exact ADK syntax and execute
+2. **For database queries**: Process through ADK tools and format results
+3. **For general questions**: Provide helpful responses directly
+4. **Always preserve** exact numbers, names, and values from user input
+5. **Never redirect users** - handle every query type appropriately
 
 WORKFLOW:
 1. Analyze user request
-2. If database-related: Choose appropriate ADK tool with parameters
-3. If general: Respond helpfully with available knowledge  
-4. Format all responses in user-friendly manner
+2. If ADK operation: Translate to proper syntax and execute
+3. If database query: Choose appropriate ADK tool with parameters
+4. If general: Respond helpfully with available knowledge
+5. Format all responses in user-friendly manner
 
-Always be helpful and comprehensive - never tell users to use other tools or redirect them elsewhere."""
+Always be helpful and comprehensive - handle all requests directly."""
 
     def _extract_current_date(self) -> str:
         """Get current date in YYYY-MM-DD format."""
@@ -116,7 +163,15 @@ CURRENT DATE: {self._extract_current_date()}
 
 Analyze this request and respond accordingly:
 
-**If this is a DATABASE QUERY** (orders, revenue, customers, products, statistics):
+**If this is an ADK OPERATION** (delete, update, change order/product data):
+Respond with a JSON object:
+{{
+    "adk_operation": "translated_command",
+    "context": "brief explanation of what will happen",
+    "operation_type": "order_operation" or "product_operation"
+}}
+
+**If this is a DATABASE QUERY** (view orders, revenue, statistics, get information):
 Respond with a JSON object:
 {{
     "adk_tool": "tool_name",
@@ -128,15 +183,29 @@ Respond with a JSON object:
 **If this is a GENERAL QUESTION** (greetings, explanations, how-to, concepts):
 Respond directly with a helpful, conversational answer. No JSON needed.
 
-DATABASE EXAMPLES:
+ADK OPERATION EXAMPLES (Use EXACT syntax only):
+- "remove order 123" → {{"adk_operation": "delete order 123", "context": "This will delete order 123", "operation_type": "order_operation"}}
+- "set product 5 stock to 200" → {{"adk_operation": "update product 5 stock to 200", "context": "This will update product 5 stock to 200 units", "operation_type": "product_operation"}}
+- "change order 456 status to shipped" → {{"adk_operation": "update order 456 status to shipped", "context": "This will update order 456 status to shipped", "operation_type": "order_operation"}}
+- "rename product 2 to Energy Blast" → {{"adk_operation": "change product 2 name to Energy Blast", "context": "This will change product 2 name to Energy Blast", "operation_type": "product_operation"}}
+- "modify order 789 customer to John Smith" → {{"adk_operation": "change order 789 customer name to John Smith", "context": "This will change order 789 customer name to John Smith", "operation_type": "order_operation"}}
+- "update order 101 contact number to 0771234567" → {{"adk_operation": "update order 101 phone to 0771234567", "context": "This will update order 101 phone to 0771234567", "operation_type": "order_operation"}}
+- "change product 3 cost to 15.99" → {{"adk_operation": "update product 3 price to 15.99", "context": "This will update product 3 price to 15.99", "operation_type": "product_operation"}}
+- "show me order 555 details" → {{"adk_operation": "edit order 555", "context": "This will show order 555 details", "operation_type": "order_operation"}}
+
+IMPORTANT: You MUST use the exact ADK syntax patterns. Do not create new variations.
+
+DATABASE QUERY EXAMPLES:
 - "orders today" → {{"adk_tool": "get_daily_statistics", "parameters": {{"date": "{self._extract_current_date()}"}}}}
-- "show order 123" → {{"adk_tool": "get_order_details", "parameters": {{"order_id": 123}}}}
+- "show order 123 details" → {{"adk_tool": "get_order_details", "parameters": {{"order_id": 123}}}}
 - "revenue analysis" → {{"adk_tool": "get_revenue_analysis", "parameters": {{}}}}
 
 GENERAL EXAMPLES:
 - "hello" → "Hi! I'm here to help with your EnergyRush admin panel..."
 - "what is e-commerce?" → "E-commerce refers to buying and selling..."
 - "how do I use this?" → "You can use this admin panel to..."
+
+IMPORTANT: For operations that modify data (delete, update, change), always use "adk_operation" format. For viewing data, use "adk_tool" format.
 """
             
             # Get translation from Gemini
@@ -156,8 +225,8 @@ GENERAL EXAMPLES:
                 # Extract JSON from Gemini response
                 response_text = gemini_response['response']
                 
-                # Check if this is a general question (no JSON tool call needed)
-                if not re.search(r'\{.*"adk_tool".*\}', response_text, re.DOTALL):
+                # Check if this is a general question (no JSON needed)
+                if not re.search(r'\{.*(?:"adk_tool"|"adk_operation").*\}', response_text, re.DOTALL):
                     # This is a general question - return Gemini's direct response
                     return {
                         'success': True,
@@ -169,12 +238,12 @@ GENERAL EXAMPLES:
                         }
                     }
                 
-                # Find JSON in response for database queries
+                # Find JSON in response
                 json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
                 if json_match:
                     translation = json.loads(json_match.group())
                 else:
-                    # Fallback: try to extract tool and parameters from text
+                    # Fallback: try to extract operations from text
                     return await self._fallback_query_processing(user_message)
                     
             except (json.JSONDecodeError, KeyError) as e:
@@ -191,23 +260,35 @@ GENERAL EXAMPLES:
                     }
                 return await self._fallback_query_processing(user_message)
             
-            # Step 3: Execute ADK tool with translated parameters
+            # Step 3: Handle ADK operations or database queries
+            adk_operation = translation.get('adk_operation')
             adk_tool = translation.get('adk_tool')
             parameters = translation.get('parameters', {})
             context = translation.get('context', '')
             format_instructions = translation.get('format_instructions', '')
+            operation_type = translation.get('operation_type', '')
             
-            if not adk_tool:
+            # Handle ADK operations (write operations)
+            if adk_operation:
                 return {
-                    'success': False,
-                    'response': "I couldn't determine which database tool to use for your request."
+                    'success': True,
+                    'response': adk_operation,  # Return the translated ADK command
+                    'bridge_info': {
+                        'type': 'adk_operation',
+                        'translated_command': adk_operation,
+                        'operation_type': operation_type,
+                        'context': context,
+                        'original_request': user_message
+                    }
                 }
             
-            # Execute ADK tool
-            adk_result = await self._execute_adk_tool(adk_tool, parameters)
-            
-            # Step 4: Use Gemini to format ADK results for user display
-            formatting_prompt = f"""
+            # Handle database queries (read operations)
+            elif adk_tool:
+                # Execute ADK tool
+                adk_result = await self._execute_adk_tool(adk_tool, parameters)
+                
+                # Step 4: Use Gemini to format ADK results for user display
+                formatting_prompt = f"""
 USER ORIGINAL REQUEST: "{user_message}"
 CONTEXT: {context}
 ADK TOOL USED: {adk_tool}
@@ -222,29 +303,35 @@ Please format this database result into a friendly, conversational response for 
 Make it easy to read and understand, but preserve all the important data and numbers.
 Use clear headings, bullet points, and natural language.
 """
-            
-            formatted_response = self.gemini.generate_response(formatting_prompt)
-            
-            if formatted_response['success']:
-                return {
-                    'success': True,
-                    'response': formatted_response['response'],
-                    'bridge_info': {
-                        'adk_tool_used': adk_tool,
-                        'parameters_used': parameters,
-                        'context': context
+                
+                formatted_response = self.gemini.generate_response(formatting_prompt)
+                
+                if formatted_response['success']:
+                    return {
+                        'success': True,
+                        'response': formatted_response['response'],
+                        'bridge_info': {
+                            'adk_tool_used': adk_tool,
+                            'parameters_used': parameters,
+                            'context': context
+                        }
                     }
-                }
+                else:
+                    # Fallback to raw ADK result if formatting fails
+                    return {
+                        'success': True,
+                        'response': f"Here's the information from our database:\n\n{adk_result}",
+                        'bridge_info': {
+                            'adk_tool_used': adk_tool,
+                            'parameters_used': parameters,
+                            'formatting_failed': True
+                        }
+                    }
+            
             else:
-                # Fallback to raw ADK result if formatting fails
                 return {
-                    'success': True,
-                    'response': f"Here's the information from our database:\n\n{adk_result}",
-                    'bridge_info': {
-                        'adk_tool_used': adk_tool,
-                        'parameters_used': parameters,
-                        'formatting_failed': True
-                    }
+                    'success': False,
+                    'response': "I couldn't determine how to handle your request."
                 }
                 
         except Exception as e:

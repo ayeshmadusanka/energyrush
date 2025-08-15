@@ -159,6 +159,26 @@ class Order(db.Model):
     created_at = db.Column(db.DateTime, default=lambda: get_colombo_time().replace(tzinfo=None))
     items = db.Column(db.Text)  # JSON string of cart items
 
+class AdkChatHistory(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    session_id = db.Column(db.String(100), nullable=False)
+    user_message = db.Column(db.Text, nullable=False)
+    adk_response = db.Column(db.Text, nullable=False)
+    operation_type = db.Column(db.String(50))  # order_edit, product_update, etc.
+    target_id = db.Column(db.Integer)  # order_id or product_id
+    confirmation_required = db.Column(db.Boolean, default=False)
+    confirmed = db.Column(db.Boolean, default=False)
+    executed = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=lambda: get_colombo_time().replace(tzinfo=None))
+    
+class AdkMemory(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    session_id = db.Column(db.String(100), nullable=False)
+    key = db.Column(db.String(100), nullable=False)
+    value = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=lambda: get_colombo_time().replace(tzinfo=None))
+    updated_at = db.Column(db.DateTime, default=lambda: get_colombo_time().replace(tzinfo=None), onupdate=lambda: get_colombo_time().replace(tzinfo=None))
+
 # Initialize NLP model (lazy loading)
 nlp_pipeline = None
 
@@ -541,6 +561,23 @@ def admin_forecasting():
 def admin_chatbot():
     try:
         message = request.json.get('message', '')
+        session_id = get_or_create_session_id()
+        
+        # Check if this is an ADK operation first
+        operation_result = parse_adk_operation(message)
+        
+        # Handle confirmation responses for ADK
+        if message.lower() in ['yes', 'y', 'confirm', 'proceed', 'no', 'n', 'cancel', 'abort']:
+            pending_op_json = get_adk_memory(session_id, 'pending_operation')
+            if pending_op_json:
+                # This is a confirmation response for ADK operation
+                return adk_operations()
+        
+        # Handle ADK operations (with confirmation system)
+        if operation_result['type'] != 'unknown':
+            return adk_operations()
+        
+        # Continue with regular chatbot flow for non-ADK operations
         
         # Use Gemini-ADK Bridge as primary handler
         if bridge_available and bridge_instance:
@@ -559,18 +596,54 @@ def admin_chatbot():
                     loop.close()
                 
                 if bridge_result['success']:
-                    formatted_response = parse_markdown_response(bridge_result['response'])
+                    # Check if bridge returned an ADK operation command
+                    bridge_info = bridge_result.get('bridge_info', {})
                     
-                    return jsonify({
-                        'response': formatted_response,
-                        'raw_response': bridge_result['response'],
-                        'type': 'gemini_adk_bridge',
-                        'handler': 'Gemini-ADK Bridge',
-                        'success': True,
-                        'bridge_info': bridge_result.get('bridge_info', {}),
-                        'adk_tool_used': bridge_result.get('bridge_info', {}).get('adk_tool_used'),
-                        'gemini_translation': True
-                    })
+                    if bridge_info.get('type') == 'adk_operation':
+                        # Bridge translated natural language to ADK command - execute it
+                        translated_command = bridge_info.get('translated_command', '')
+                        
+                        # Parse and execute the translated ADK command
+                        operation_result = parse_adk_operation(translated_command)
+                        
+                        if operation_result['type'] != 'unknown':
+                            # Store original message for history
+                            save_chat_history(session_id, message, f"Translated to: {translated_command}")
+                            
+                            # Replace the message with translated command and execute
+                            request.json['message'] = translated_command
+                            
+                            # Execute the ADK operation using the translated command
+                            return adk_operations()
+                        else:
+                            # Fallback to showing the translated command
+                            response_text = f"I translated your request to: `{translated_command}`\n\nHowever, I couldn't execute it. Please try using the exact command format."
+                            save_chat_history(session_id, message, response_text)
+                            
+                            return jsonify({
+                                'response': response_text,
+                                'type': 'translation_only',
+                                'success': True,
+                                'translated_command': translated_command
+                            })
+                    
+                    else:
+                        # Regular database query or general response
+                        formatted_response = parse_markdown_response(bridge_result['response'])
+                        
+                        # Save to chat history
+                        save_chat_history(session_id, message, bridge_result['response'])
+                        
+                        return jsonify({
+                            'response': formatted_response,
+                            'raw_response': bridge_result['response'],
+                            'type': 'gemini_adk_bridge',
+                            'handler': 'Gemini-ADK Bridge',
+                            'success': True,
+                            'bridge_info': bridge_result.get('bridge_info', {}),
+                            'adk_tool_used': bridge_result.get('bridge_info', {}).get('adk_tool_used'),
+                            'gemini_translation': True
+                        })
                 else:
                     print(f"Bridge error: {bridge_result['response']}")
                     # Fall through to fallback handlers
@@ -587,6 +660,9 @@ def admin_chatbot():
                 enhanced_chatbot_handler = create_enhanced_chatbot_handler()
                 raw_response = enhanced_chatbot_handler(message)
                 formatted_response = parse_markdown_response(raw_response)
+                
+                # Save to chat history
+                save_chat_history(session_id, message, raw_response)
                 
                 return jsonify({
                     'response': formatted_response,
@@ -607,6 +683,9 @@ def admin_chatbot():
                 
                 if gemini_result['success']:
                     formatted_response = parse_markdown_response(gemini_result['response'])
+                    
+                    # Save to chat history
+                    save_chat_history(session_id, message, gemini_result['response'])
                     
                     return jsonify({
                         'response': formatted_response,
@@ -629,6 +708,9 @@ def admin_chatbot():
         raw_response = handle_basic_chatbot_queries(message)
         formatted_response = parse_markdown_response(raw_response)
         
+        # Save to chat history
+        save_chat_history(session_id, message, raw_response)
+        
         return jsonify({
             'response': formatted_response,
             'raw_response': raw_response,
@@ -642,6 +724,606 @@ def admin_chatbot():
             'response': f'❌ Sorry, I encountered an error: {str(e)}',
             'type': 'error',
             'success': False
+        })
+
+# ADK Operations and Memory Management
+def get_or_create_session_id():
+    """Get or create a session ID for ADK operations."""
+    if 'adk_session_id' not in session:
+        import uuid
+        session['adk_session_id'] = str(uuid.uuid4())
+        session.modified = True
+    return session['adk_session_id']
+
+def save_adk_memory(session_id, key, value):
+    """Save a key-value pair to ADK memory."""
+    memory = AdkMemory.query.filter_by(session_id=session_id, key=key).first()
+    if memory:
+        memory.value = value
+        memory.updated_at = get_colombo_time().replace(tzinfo=None)
+    else:
+        memory = AdkMemory(session_id=session_id, key=key, value=value)
+        db.session.add(memory)
+    db.session.commit()
+
+def get_adk_memory(session_id, key):
+    """Retrieve a value from ADK memory."""
+    memory = AdkMemory.query.filter_by(session_id=session_id, key=key).first()
+    return memory.value if memory else None
+
+def save_chat_history(session_id, user_message, adk_response, operation_type=None, target_id=None, confirmation_required=False):
+    """Save chat interaction to history."""
+    chat = AdkChatHistory(
+        session_id=session_id,
+        user_message=user_message,
+        adk_response=adk_response,
+        operation_type=operation_type,
+        target_id=target_id,
+        confirmation_required=confirmation_required
+    )
+    db.session.add(chat)
+    db.session.commit()
+    return chat.id
+
+def get_chat_history(session_id, limit=10):
+    """Get recent chat history for a session."""
+    return AdkChatHistory.query.filter_by(session_id=session_id).order_by(AdkChatHistory.created_at.desc()).limit(limit).all()
+
+@app.route('/admin/adk_operations', methods=['POST'])
+def adk_operations():
+    """Handle ADK operations with confirmation system."""
+    try:
+        data = request.get_json()
+        message = data.get('message', '').strip()
+        session_id = get_or_create_session_id()
+        
+        # Check for confirmation responses
+        if message.lower() in ['yes', 'y', 'confirm', 'proceed']:
+            return handle_confirmation(session_id, True)
+        elif message.lower() in ['no', 'n', 'cancel', 'abort']:
+            return handle_confirmation(session_id, False)
+        
+        # Parse the operation from the message
+        operation_result = parse_adk_operation(message)
+        
+        if operation_result['type'] == 'unknown':
+            response = "I can help you with:\n• **Order operations**: 'edit order 123', 'delete order 123', 'update order 123 status to shipped'\n• **Product operations**: 'update product 5 stock to 100', 'edit product 2 price to 15.99'\n\nPlease specify the operation and ID number."
+            save_chat_history(session_id, message, response)
+            return jsonify({
+                'response': response,
+                'type': 'help',
+                'success': True
+            })
+        
+        # Check permissions (simulated - in real implementation would check ADK permissions)
+        has_permission = check_adk_permissions(operation_result['type'])
+        
+        if not has_permission:
+            # Request user confirmation
+            confirmation_text = generate_confirmation_request(operation_result)
+            save_chat_history(session_id, message, confirmation_text, 
+                            operation_result['type'], operation_result.get('target_id'), 
+                            confirmation_required=True)
+            
+            # Store pending operation
+            save_adk_memory(session_id, 'pending_operation', json.dumps(operation_result))
+            
+            return jsonify({
+                'response': confirmation_text,
+                'type': 'confirmation_required',
+                'success': True,
+                'requires_confirmation': True
+            })
+        
+        # Execute operation directly if permission granted
+        result = execute_adk_operation(operation_result)
+        save_chat_history(session_id, message, result['response'], 
+                         operation_result['type'], operation_result.get('target_id'))
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        return jsonify({
+            'response': f'❌ ADK operation error: {str(e)}',
+            'type': 'error',
+            'success': False
+        })
+
+def parse_adk_operation(message):
+    """Parse user message to identify ADK operation."""
+    message_lower = message.lower()
+    
+    # Order operations
+    if 'order' in message_lower:
+        import re
+        order_match = re.search(r'order\s+(\d+)', message_lower)
+        if order_match:
+            order_id = int(order_match.group(1))
+            
+            if 'delete' in message_lower:
+                return {'type': 'order_delete', 'target_id': order_id}
+            elif 'status' in message_lower:
+                # Extract new status
+                status_match = re.search(r'status\s+to\s+(\w+)', message_lower)
+                if status_match:
+                    new_status = status_match.group(1).title()
+                    return {'type': 'order_update_status', 'target_id': order_id, 'new_status': new_status}
+            elif re.search(r'customer\s+name', message_lower) or re.search(r'name\s+to', message_lower):
+                # Extract new customer name
+                name_match = re.search(r'(?:customer\s+)?name\s+to\s+(.+?)(?:\s|$)', message_lower)
+                if name_match:
+                    new_name = name_match.group(1).strip()
+                    return {'type': 'order_update_customer_name', 'target_id': order_id, 'new_customer_name': new_name}
+            elif 'phone' in message_lower:
+                # Extract new phone
+                phone_match = re.search(r'phone\s+to\s+([^\s]+)', message_lower)
+                if phone_match:
+                    new_phone = phone_match.group(1).strip()
+                    return {'type': 'order_update_phone', 'target_id': order_id, 'new_phone': new_phone}
+            elif 'address' in message_lower:
+                # Extract new address
+                address_match = re.search(r'address\s+to\s+(.+?)(?:\s*$)', message_lower)
+                if address_match:
+                    new_address = address_match.group(1).strip()
+                    return {'type': 'order_update_address', 'target_id': order_id, 'new_address': new_address}
+            elif 'edit' in message_lower or 'update' in message_lower:
+                return {'type': 'order_edit', 'target_id': order_id}
+    
+    # Product operations
+    elif 'product' in message_lower:
+        import re
+        product_match = re.search(r'product\s+(\d+)', message_lower)
+        if product_match:
+            product_id = int(product_match.group(1))
+            
+            if 'stock' in message_lower:
+                stock_match = re.search(r'stock\s+to\s+(\d+)', message_lower)
+                if stock_match:
+                    new_stock = int(stock_match.group(1))
+                    return {'type': 'product_update_stock', 'target_id': product_id, 'new_stock': new_stock}
+            elif 'price' in message_lower:
+                price_match = re.search(r'price\s+to\s+([\d.]+)', message_lower)
+                if price_match:
+                    new_price = float(price_match.group(1))
+                    return {'type': 'product_update_price', 'target_id': product_id, 'new_price': new_price}
+            elif 'name' in message_lower:
+                name_match = re.search(r'name\s+to\s+(.+?)(?:\s*$)', message_lower)
+                if name_match:
+                    new_name = name_match.group(1).strip()
+                    return {'type': 'product_update_name', 'target_id': product_id, 'new_name': new_name}
+            elif 'description' in message_lower:
+                desc_match = re.search(r'description\s+to\s+(.+?)(?:\s*$)', message_lower)
+                if desc_match:
+                    new_description = desc_match.group(1).strip()
+                    return {'type': 'product_update_description', 'target_id': product_id, 'new_description': new_description}
+            elif 'edit' in message_lower or 'update' in message_lower:
+                return {'type': 'product_edit', 'target_id': product_id}
+    
+    return {'type': 'unknown'}
+
+def check_adk_permissions(operation_type):
+    """Simulate ADK permission check."""
+    # In real implementation, this would check with Google ADK
+    # Grant ADK full permission for these operations (no confirmation required)
+    if operation_type in ['order_update_status', 'product_update_stock']:
+        return True
+    # For other operations, require confirmation
+    return False
+
+def generate_confirmation_request(operation_result):
+    """Generate simplified confirmation text for an operation."""
+    op_type = operation_result['type']
+    target_id = operation_result.get('target_id')
+    
+    # Fetch the actual data for context
+    if op_type == 'order_delete':
+        order = Order.query.get(target_id)
+        if order:
+            return f"⚠️ **Delete Order #{target_id}?**\n\nCustomer: {order.customer_name}\nAmount: ${order.total_amount}\nStatus: {order.status}\n\nRespond 'yes' to delete or 'no' to cancel."
+        else:
+            return f"❌ Order #{target_id} not found."
+    
+    elif op_type == 'order_update_status':
+        order = Order.query.get(target_id)
+        new_status = operation_result.get('new_status')
+        if order:
+            return f"⚠️ **Update Order #{target_id} Status?**\n\nCurrent: {order.status} → New: {new_status}\nCustomer: {order.customer_name}\n\nRespond 'yes' to update or 'no' to cancel."
+        else:
+            return f"❌ Order #{target_id} not found."
+    
+    elif op_type == 'product_update_stock':
+        product = Product.query.get(target_id)
+        new_stock = operation_result.get('new_stock')
+        if product:
+            return f"⚠️ **Update Stock for {product.name}?**\n\nCurrent: {product.stock} → New: {new_stock} units\n\nRespond 'yes' to update or 'no' to cancel."
+        else:
+            return f"❌ Product #{target_id} not found."
+    
+    elif op_type == 'product_update_price':
+        product = Product.query.get(target_id)
+        new_price = operation_result.get('new_price')
+        if product:
+            return f"⚠️ **Update Price for {product.name}?**\n\nCurrent: ${product.price} → New: ${new_price}\n\nRespond 'yes' to update or 'no' to cancel."
+        else:
+            return f"❌ Product #{target_id} not found."
+    
+    elif op_type == 'order_edit':
+        return f"⚠️ **View Order #{target_id} Details?**\n\nThis will show order information and editing options.\n\nRespond 'yes' to view or 'no' to cancel."
+    
+    elif op_type == 'product_edit':
+        return f"⚠️ **View Product #{target_id} Details?**\n\nThis will show product information and editing options.\n\nRespond 'yes' to view or 'no' to cancel."
+    
+    return f"⚠️ **Confirm Operation**\n\nRespond 'yes' to proceed or 'no' to cancel."
+
+def handle_confirmation(session_id, confirmed):
+    """Handle user confirmation response."""
+    try:
+        pending_op_json = get_adk_memory(session_id, 'pending_operation')
+        if not pending_op_json:
+            return jsonify({
+                'response': "❌ No pending operation found to confirm.",
+                'type': 'error',
+                'success': False
+            })
+        
+        operation_result = json.loads(pending_op_json)
+        
+        if confirmed:
+            # Execute the operation
+            result = execute_adk_operation(operation_result)
+            
+            # Mark as confirmed and executed in history
+            recent_chat = AdkChatHistory.query.filter_by(
+                session_id=session_id, 
+                confirmation_required=True,
+                confirmed=False
+            ).order_by(AdkChatHistory.created_at.desc()).first()
+            
+            if recent_chat:
+                recent_chat.confirmed = True
+                recent_chat.executed = True
+                db.session.commit()
+            
+            # Clear pending operation
+            save_adk_memory(session_id, 'pending_operation', '')
+            
+            return jsonify(result)
+        else:
+            # Operation cancelled
+            response = "✅ Operation cancelled by user."
+            
+            # Mark as not confirmed in history  
+            recent_chat = AdkChatHistory.query.filter_by(
+                session_id=session_id,
+                confirmation_required=True,
+                confirmed=False
+            ).order_by(AdkChatHistory.created_at.desc()).first()
+            
+            if recent_chat:
+                recent_chat.confirmed = False
+                db.session.commit()
+            
+            # Clear pending operation
+            save_adk_memory(session_id, 'pending_operation', '')
+            
+            return jsonify({
+                'response': response,
+                'type': 'cancelled',
+                'success': True
+            })
+            
+    except Exception as e:
+        return jsonify({
+            'response': f'❌ Confirmation handling error: {str(e)}',
+            'type': 'error', 
+            'success': False
+        })
+
+def execute_adk_operation(operation_result):
+    """Execute the confirmed ADK operation."""
+    try:
+        op_type = operation_result['type']
+        target_id = operation_result.get('target_id')
+        
+        if op_type == 'order_delete':
+            order = Order.query.get(target_id)
+            if not order:
+                return {
+                    'response': f"❌ Order #{target_id} not found.",
+                    'type': 'error',
+                    'success': False
+                }
+            
+            db.session.delete(order)
+            db.session.commit()
+            
+            return {
+                'response': f"✅ Order #{target_id} deleted successfully",
+                'type': 'success',
+                'success': True
+            }
+        
+        elif op_type == 'order_update_status':
+            order = Order.query.get(target_id)
+            if not order:
+                return {
+                    'response': f"❌ Order #{target_id} not found.",
+                    'type': 'error',
+                    'success': False
+                }
+            
+            old_status = order.status
+            new_status = operation_result.get('new_status')
+            order.status = new_status
+            db.session.commit()
+            
+            return {
+                'response': f"✅ Order #{target_id} status updated: {old_status} → {new_status}",
+                'type': 'success',
+                'success': True
+            }
+        
+        elif op_type == 'product_update_stock':
+            product = Product.query.get(target_id)
+            if not product:
+                return {
+                    'response': f"❌ Product #{target_id} not found.",
+                    'type': 'error',
+                    'success': False
+                }
+            
+            old_stock = product.stock
+            new_stock = operation_result.get('new_stock')
+            product.stock = new_stock
+            db.session.commit()
+            
+            return {
+                'response': f"✅ {product.name} stock updated: {old_stock} → {new_stock} units",
+                'type': 'success',
+                'success': True
+            }
+        
+        elif op_type == 'product_update_price':
+            product = Product.query.get(target_id)
+            if not product:
+                return {
+                    'response': f"❌ Product #{target_id} not found.",
+                    'type': 'error',
+                    'success': False
+                }
+            
+            old_price = product.price
+            new_price = operation_result.get('new_price')
+            product.price = new_price
+            db.session.commit()
+            
+            return {
+                'response': f"✅ {product.name} price updated: ${old_price} → ${new_price}",
+                'type': 'success',
+                'success': True
+            }
+        
+        elif op_type == 'order_edit':
+            order = Order.query.get(target_id)
+            if not order:
+                return {
+                    'response': f"❌ Order #{target_id} not found.",
+                    'type': 'error',
+                    'success': False
+                }
+            
+            # Parse items from JSON
+            try:
+                items = json.loads(order.items) if order.items else []
+                items_text = ""
+                for item in items:
+                    items_text += f"• {item.get('name', 'Unknown')} - Qty: {item.get('quantity', 0)} - ${item.get('total', 0)}\n"
+            except:
+                items_text = "• Unable to parse order items\n"
+            
+            order_details = f"""📋 **Order #{target_id} Details**
+
+**Customer Information:**
+• Name: {order.customer_name}
+• Phone: {order.customer_phone}
+• Address: {order.customer_address}
+
+**Order Information:**
+• Status: {order.status}
+• Total Amount: ${order.total_amount}
+• Order Date: {order.created_at.strftime('%Y-%m-%d %H:%M')}
+
+**Items Ordered:**
+{items_text}
+To modify this order, specify what you want to change:
+• "update order {target_id} status to [new_status]"
+• "change order {target_id} customer name to [new_name]" 
+• "update order {target_id} phone to [new_phone]"
+• "change order {target_id} address to [new_address]"
+"""
+            
+            return {
+                'response': order_details,
+                'type': 'info',
+                'success': True
+            }
+        
+        elif op_type == 'order_update_customer_name':
+            order = Order.query.get(target_id)
+            if not order:
+                return {
+                    'response': f"❌ Order #{target_id} not found.",
+                    'type': 'error',
+                    'success': False
+                }
+            
+            old_name = order.customer_name
+            new_name = operation_result.get('new_customer_name')
+            order.customer_name = new_name
+            db.session.commit()
+            
+            return {
+                'response': f"✅ Order #{target_id} customer name updated: {old_name} → {new_name}",
+                'type': 'success',
+                'success': True
+            }
+        
+        elif op_type == 'order_update_phone':
+            order = Order.query.get(target_id)
+            if not order:
+                return {
+                    'response': f"❌ Order #{target_id} not found.",
+                    'type': 'error',
+                    'success': False
+                }
+            
+            old_phone = order.customer_phone
+            new_phone = operation_result.get('new_phone')
+            order.customer_phone = new_phone
+            db.session.commit()
+            
+            return {
+                'response': f"✅ Order #{target_id} phone updated: {old_phone} → {new_phone}",
+                'type': 'success',
+                'success': True
+            }
+        
+        elif op_type == 'order_update_address':
+            order = Order.query.get(target_id)
+            if not order:
+                return {
+                    'response': f"❌ Order #{target_id} not found.",
+                    'type': 'error',
+                    'success': False
+                }
+            
+            old_address = order.customer_address
+            new_address = operation_result.get('new_address')
+            order.customer_address = new_address
+            db.session.commit()
+            
+            return {
+                'response': f"✅ Order #{target_id} address updated",
+                'type': 'success',
+                'success': True
+            }
+        
+        elif op_type == 'product_update_name':
+            product = Product.query.get(target_id)
+            if not product:
+                return {
+                    'response': f"❌ Product #{target_id} not found.",
+                    'type': 'error',
+                    'success': False
+                }
+            
+            old_name = product.name
+            new_name = operation_result.get('new_name')
+            product.name = new_name
+            db.session.commit()
+            
+            return {
+                'response': f"✅ Product #{target_id} name updated: {old_name} → {new_name}",
+                'type': 'success',
+                'success': True
+            }
+        
+        elif op_type == 'product_update_description':
+            product = Product.query.get(target_id)
+            if not product:
+                return {
+                    'response': f"❌ Product #{target_id} not found.",
+                    'type': 'error',
+                    'success': False
+                }
+            
+            old_description = product.description or 'No description'
+            new_description = operation_result.get('new_description')
+            product.description = new_description
+            db.session.commit()
+            
+            return {
+                'response': f"✅ Product #{target_id} description updated",
+                'type': 'success',
+                'success': True
+            }
+        
+        elif op_type == 'product_edit':
+            product = Product.query.get(target_id)
+            if not product:
+                return {
+                    'response': f"❌ Product #{target_id} not found.",
+                    'type': 'error',
+                    'success': False
+                }
+            
+            product_details = f"""📦 **Product #{target_id} Details**
+
+**Product Information:**
+• Name: {product.name}
+• Description: {product.description or 'No description'}
+• Price: ${product.price}
+• Stock: {product.stock} units
+• Created: {product.created_at.strftime('%Y-%m-%d %H:%M')}
+
+To modify this product, specify what you want to change:
+• "update product {target_id} stock to [amount]"
+• "update product {target_id} price to [amount]"
+• "change product {target_id} name to [new_name]"
+• "update product {target_id} description to [new_description]"
+"""
+            
+            return {
+                'response': product_details,
+                'type': 'info',
+                'success': True
+            }
+        
+        else:
+            return {
+                'response': f"❌ Operation type '{op_type}' not implemented yet.",
+                'type': 'error',
+                'success': False
+            }
+            
+    except Exception as e:
+        return {
+            'response': f'❌ Operation execution error: {str(e)}',
+            'type': 'error',
+            'success': False
+        }
+
+@app.route('/admin/adk_history', methods=['GET'])
+def get_adk_history():
+    """Get ADK chat history for current session."""
+    try:
+        session_id = get_or_create_session_id()
+        history = get_chat_history(session_id, limit=20)
+        
+        history_data = []
+        for chat in reversed(history):  # Show oldest first
+            history_data.append({
+                'id': chat.id,
+                'user_message': chat.user_message,
+                'adk_response': chat.adk_response,
+                'operation_type': chat.operation_type,
+                'target_id': chat.target_id,
+                'confirmation_required': chat.confirmation_required,
+                'confirmed': chat.confirmed,
+                'executed': chat.executed,
+                'timestamp': chat.created_at.strftime('%Y-%m-%d %H:%M:%S')
+            })
+        
+        return jsonify({
+            'success': True,
+            'session_id': session_id,
+            'history': history_data
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
         })
 
 def is_database_related_query(message: str) -> bool:
@@ -1038,25 +1720,42 @@ def generate_forecast():
     daily_data['is_saturday'] = (daily_data['day_of_week'] == 5).astype(int)
     daily_data['is_sunday'] = (daily_data['day_of_week'] == 6).astype(int)
     
-    # Add cyclical features for better seasonality capture
+    # Enhanced cyclical features for better seasonality capture
     daily_data['week_sin'] = np.sin(2 * np.pi * daily_data['day_of_week'] / 7)
     daily_data['week_cos'] = np.cos(2 * np.pi * daily_data['day_of_week'] / 7)
     daily_data['month_sin'] = np.sin(2 * np.pi * daily_data['day_num'] / 30)
     daily_data['month_cos'] = np.cos(2 * np.pi * daily_data['day_num'] / 30)
     
-    # Feature columns for regression
+    # Add trend features for better accuracy
+    daily_data['day_num_squared'] = daily_data['day_num'] ** 2
+    daily_data['day_num_cubed'] = daily_data['day_num'] ** 3
+    
+    # Add moving averages as features
+    daily_data['orders_ma_3'] = daily_data['order_count'].rolling(window=3, min_periods=1).mean()
+    daily_data['orders_ma_7'] = daily_data['order_count'].rolling(window=7, min_periods=1).mean()
+    daily_data['revenue_ma_3'] = daily_data['amount'].rolling(window=3, min_periods=1).mean()
+    daily_data['revenue_ma_7'] = daily_data['amount'].rolling(window=7, min_periods=1).mean()
+    
+    # Enhanced feature columns for better regression accuracy
     feature_cols = [
-        'day_num', 'is_weekend', 'is_monday', 'is_friday', 'is_saturday', 'is_sunday',
-        'week_sin', 'week_cos', 'month_sin', 'month_cos'
+        'day_num', 'day_num_squared', 'day_num_cubed',
+        'is_weekend', 'is_monday', 'is_friday', 'is_saturday', 'is_sunday',
+        'week_sin', 'week_cos', 'month_sin', 'month_cos',
+        'orders_ma_3', 'orders_ma_7', 'revenue_ma_3', 'revenue_ma_7'
     ]
     
     X = daily_data[feature_cols].values
     y_orders = daily_data['order_count'].values
     y_revenue = daily_data['amount'].values
     
+    # Apply feature scaling for better model performance
+    from sklearn.preprocessing import StandardScaler
+    scaler = StandardScaler()
+    X_scaled = scaler.fit_transform(X)
+    
     # Split for validation (use last 7 days)
-    if len(X) >= 14:  # Need at least 14 days total
-        X_train, X_val = X[:-7], X[-7:]
+    if len(X_scaled) >= 14:  # Need at least 14 days total
+        X_train, X_val = X_scaled[:-7], X_scaled[-7:]
         y_orders_train, y_orders_val = y_orders[:-7], y_orders[-7:]
         y_revenue_train, y_revenue_val = y_revenue[:-7], y_revenue[-7:]
         
@@ -1080,14 +1779,14 @@ def generate_forecast():
     else:
         # Use full dataset for training if not enough data for validation
         orders_model = LinearRegression()
-        orders_model.fit(X, y_orders)
+        orders_model.fit(X_scaled, y_orders)
         
         revenue_model = LinearRegression()  
-        revenue_model.fit(X, y_revenue)
+        revenue_model.fit(X_scaled, y_revenue)
         
         # Use training performance as approximation
-        orders_pred_train = orders_model.predict(X)
-        revenue_pred_train = revenue_model.predict(X)
+        orders_pred_train = orders_model.predict(X_scaled)
+        revenue_pred_train = revenue_model.predict(X_scaled)
         
         orders_mae = float(mean_absolute_error(y_orders, orders_pred_train))
         orders_r2 = float(r2_score(y_orders, orders_pred_train))
@@ -1119,16 +1818,27 @@ def generate_forecast():
         month_sin = np.sin(2 * np.pi * day_num / 30)
         month_cos = np.cos(2 * np.pi * day_num / 30)
         
+        # Calculate moving averages for future predictions (use last known values)
+        last_orders_ma_3 = daily_data['orders_ma_3'].iloc[-1]
+        last_orders_ma_7 = daily_data['orders_ma_7'].iloc[-1]
+        last_revenue_ma_3 = daily_data['revenue_ma_3'].iloc[-1]
+        last_revenue_ma_7 = daily_data['revenue_ma_7'].iloc[-1]
+        
         future_features.append([
-            day_num, is_weekend, is_monday, is_friday, is_saturday, is_sunday,
-            week_sin, week_cos, month_sin, month_cos
+            day_num, day_num**2, day_num**3,
+            is_weekend, is_monday, is_friday, is_saturday, is_sunday,
+            week_sin, week_cos, month_sin, month_cos,
+            last_orders_ma_3, last_orders_ma_7, last_revenue_ma_3, last_revenue_ma_7
         ])
     
     X_future = np.array(future_features)
     
+    # Scale future features using the same scaler
+    X_future_scaled = scaler.transform(X_future)
+    
     # Make predictions
-    predicted_orders = orders_model.predict(X_future)
-    predicted_revenue = revenue_model.predict(X_future)
+    predicted_orders = orders_model.predict(X_future_scaled)
+    predicted_revenue = revenue_model.predict(X_future_scaled)
     
     # Ensure non-negative predictions
     predicted_orders = np.maximum(predicted_orders, 0)
@@ -1486,6 +2196,206 @@ def generate_context_for_nlp():
     
     return ". ".join(context_parts)
 
+def generate_comprehensive_synthetic_data():
+    """Generate comprehensive synthetic data from 2025-01-01 to 2025-08-16 optimized for Theta model forecasting."""
+    import random
+    import math
+    from datetime import datetime, timedelta
+    
+    synthetic_orders = []
+    
+    # Enhanced customer names pool (50 names for more variety)
+    customer_names = [
+        # Sri Lankan names
+        "Amal Perera", "Kasun Silva", "Nimal Fernando", "Saman Jayawardena", "Dilshan Kumar",
+        "Chamara Wickramasinghe", "Ruwan Bandara", "Thisara Mendis", "Lakmal Rodrigo", "Janith Gunasekara",
+        "Sachini Wijeratne", "Hansika Rajapaksa", "Tharushi Senanayake", "Kavitha Amarasinghe", "Nilmini Dias",
+        "Sanduni Gamage", "Priyanka Rathnayake", "Nadeesha Cooray", "Oshadi Herath", "Chathuri Fonseka",
+        "Nuwan Rajapaksa", "Mahesh Fernando", "Thilini Gunasekara", "Udara Wickremasinghe", "Kamal Mendis",
+        
+        # International names
+        "David Johnson", "Sarah Williams", "Michael Brown", "Emily Davis", "James Wilson",
+        "Jennifer Garcia", "Robert Miller", "Lisa Anderson", "Mark Taylor", "Amanda Martinez",
+        "Daniel Thompson", "Jessica Lee", "Christopher White", "Ashley Moore", "Matthew Clark",
+        "Rachel Rodriguez", "Andrew Lewis", "Samantha Walker", "Joshua Hall", "Nicole Allen",
+        "Kevin Young", "Stephanie King", "Brian Wright", "Melissa Scott", "Brandon Green",
+        "Michelle Adams", "Tyler Baker", "Lauren Hill", "Justin Nelson", "Kimberly Carter"
+    ]
+    
+    # Phone numbers pool
+    phone_prefixes = ["077", "071", "076", "070", "075", "078"]
+    
+    # Address templates
+    address_templates = [
+        "{} Galle Road, Colombo {}", "{} Kandy Road, Kaduwela", "{} Negombo Road, Wattala",
+        "{} High Level Road, Nugegoda", "{} Baseline Road, Colombo {}", "{} Kottawa Road, Pannipitiya",
+        "{} Maharagama Road, Maharagama", "{} Kelaniya Road, Peliyagoda", "{} Avissawella Road, Maharagama",
+        "{} Horana Road, Panadura", "{} Malabe Road, Malabe", "{} Ratmalana Road, Ratmalana",
+        "{} Dehiwala Road, Dehiwala", "{} Moratuwa Road, Moratuwa", "{} Piliyandala Road, Piliyandala"
+    ]
+    
+    # Product data (matching actual database products)
+    product_data = {
+        1: {'name': 'Red Bull Energy Drink', 'price': 2.99},
+        2: {'name': 'Monster Energy', 'price': 3.49}, 
+        3: {'name': 'Ultra Boost Energy', 'price': 4.99},
+        4: {'name': 'Lightning Strike', 'price': 3.99},
+        5: {'name': 'Power Surge', 'price': 3.29}
+    }
+    
+    # Theta model optimized patterns
+    
+    # Base weekly pattern (strong seasonality for Theta model)
+    weekly_base_orders = {
+        0: 25,  # Monday
+        1: 30,  # Tuesday  
+        2: 35,  # Wednesday
+        3: 40,  # Thursday
+        4: 50,  # Friday
+        5: 80,  # Saturday (strong peak)
+        6: 75   # Sunday (high)
+    }
+    
+    # Monthly seasonality (business cycles)
+    monthly_multipliers = {
+        1: 0.85,  # January (post-holiday low)
+        2: 0.90,  # February (gradual recovery)
+        3: 1.00,  # March (normal)
+        4: 1.05,  # April (spring increase)
+        5: 1.10,  # May (growth)
+        6: 1.15,  # June (summer peak)
+        7: 1.20,  # July (peak summer)
+        8: 1.15   # August (still high)
+    }
+    
+    # Long-term growth trend (annual 20% growth = 0.05% daily)
+    daily_growth_rate = 0.0005
+    
+    # Hourly distribution (optimized for energy drink sales)
+    hourly_weights = {
+        6: 0.01, 7: 0.02, 8: 0.03, 9: 0.04, 10: 0.06, 11: 0.08, 12: 0.10,  # Morning peak
+        13: 0.09, 14: 0.08, 15: 0.07, 16: 0.09, 17: 0.11, 18: 0.12,        # Afternoon surge
+        19: 0.10, 20: 0.08, 21: 0.06, 22: 0.04, 23: 0.02                   # Evening decline
+    }
+    
+    # Generate data from 2025-01-01 to 2025-08-16
+    start_date = datetime(2025, 1, 1)
+    end_date = datetime(2025, 8, 16)
+    
+    current_date = start_date
+    day_number = 0
+    
+    print(f"Generating comprehensive synthetic data from {start_date.date()} to {end_date.date()}...")
+    
+    while current_date <= end_date:
+        day_of_week = current_date.weekday()
+        month = current_date.month
+        
+        # Calculate daily orders with multiple seasonality layers
+        base_orders = weekly_base_orders[day_of_week]
+        
+        # Apply monthly seasonality
+        monthly_adjusted = base_orders * monthly_multipliers[month]
+        
+        # Apply long-term growth trend
+        trend_adjusted = monthly_adjusted * (1 + daily_growth_rate) ** day_number
+        
+        # Add some cyclical variation (quarterly cycles)
+        quarterly_cycle = 1 + 0.1 * math.sin(2 * math.pi * day_number / 90)
+        cycle_adjusted = trend_adjusted * quarterly_cycle
+        
+        # Add noise but keep it minimal for better Theta model performance
+        daily_orders = int(cycle_adjusted * random.uniform(0.95, 1.05))
+        
+        # Ensure minimum orders per day
+        daily_orders = max(daily_orders, 5)
+        
+        # Generate orders for this day
+        for order_index in range(daily_orders):
+            # Random hour based on energy drink consumption patterns
+            hour = random.choices(list(hourly_weights.keys()), weights=list(hourly_weights.values()))[0]
+            minute = random.randint(0, 59)
+            second = random.randint(0, 59)
+            
+            order_time = current_date.replace(hour=hour, minute=minute, second=second)
+            
+            # Customer data
+            customer_name = random.choice(customer_names)
+            phone_prefix = random.choice(phone_prefixes)
+            phone_number = f"{phone_prefix}{random.randint(1000000, 9999999)}"
+            
+            # Address generation
+            street_number = random.randint(1, 999)
+            address_template = random.choice(address_templates)
+            if "Colombo {}" in address_template:
+                address = address_template.format(street_number, random.randint(1, 15))
+            elif "{}" in address_template:
+                address = address_template.format(street_number)
+            else:
+                address = f"{street_number} {address_template}"
+            
+            # Order composition (favor single items for energy drinks)
+            num_items = random.choices([1, 2, 3], weights=[0.7, 0.25, 0.05])[0]
+            order_items = []
+            total_amount = 0
+            
+            for _ in range(num_items):
+                # Product selection with some bias toward popular items
+                product_weights = [0.25, 0.20, 0.20, 0.20, 0.15]  # Slightly favor product 1
+                product_id = random.choices([1, 2, 3, 4, 5], weights=product_weights)[0]
+                quantity = random.choices([1, 2, 3, 4], weights=[0.6, 0.25, 0.1, 0.05])[0]
+                
+                product_info = product_data[product_id]
+                price = product_info['price']
+                item_total = price * quantity
+                
+                order_items.append({
+                    'product_id': product_id,
+                    'name': product_info['name'],
+                    'price': price,
+                    'quantity': quantity,
+                    'total': item_total
+                })
+                total_amount += item_total
+            
+            # Order status (realistic lifecycle)
+            days_ago = (datetime.now() - order_time).days
+            if days_ago > 30:
+                status = random.choices(['Completed', 'Delivered'], weights=[0.8, 0.2])[0]
+            elif days_ago > 7:
+                status = random.choices(['Completed', 'Delivered', 'Shipped'], weights=[0.7, 0.2, 0.1])[0]
+            elif days_ago > 3:
+                status = random.choices(['Completed', 'Shipped', 'Pending'], weights=[0.5, 0.3, 0.2])[0]
+            else:
+                status = random.choices(['Pending', 'Shipped', 'Completed'], weights=[0.5, 0.3, 0.2])[0]
+            
+            # Create order
+            order = Order(
+                customer_name=customer_name,
+                customer_phone=phone_number,
+                customer_address=address,
+                total_amount=round(total_amount, 2),
+                status=status,
+                created_at=order_time,
+                items=json.dumps(order_items)
+            )
+            
+            synthetic_orders.append(order)
+        
+        current_date += timedelta(days=1)
+        day_number += 1
+        
+        # Progress indicator for long generation
+        if day_number % 30 == 0:
+            print(f"  Generated data for {day_number} days ({current_date.strftime('%Y-%m-%d')})...")
+    
+    total_days = (end_date - start_date).days + 1
+    print(f"✅ Generated {len(synthetic_orders)} orders across {total_days} days")
+    print(f"   Average: {len(synthetic_orders)/total_days:.1f} orders per day")
+    print(f"   Date range: {start_date.date()} to {end_date.date()}")
+    
+    return synthetic_orders
+
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
@@ -1504,5 +2414,20 @@ if __name__ == '__main__':
                 db.session.add(product)
             
             db.session.commit()
+            
+        # Clear existing orders and generate comprehensive synthetic dataset (2025-01-01 to 2025-08-16)
+        print("🧹 Clearing existing orders for comprehensive dataset generation...")
+        Order.query.delete()
+        db.session.commit()
+        
+        print("📊 Generating comprehensive synthetic data optimized for Theta model...")
+        synthetic_orders = generate_comprehensive_synthetic_data()
+        
+        print("💾 Saving synthetic orders to database...")
+        for order in synthetic_orders:
+            db.session.add(order)
+        
+        db.session.commit()
+        print(f"✅ Successfully generated and saved {len(synthetic_orders)} comprehensive orders (2025-01-01 to 2025-08-16)")
     
     app.run(debug=True, port=8000)
