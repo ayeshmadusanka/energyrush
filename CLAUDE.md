@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**EnergyRush** is a complete Flask-based e-commerce platform for selling energy drinks with advanced AI features including ML forecasting and NLP chatbot capabilities.
+**EnergyRush** is a Flask-based e-commerce platform for selling energy drinks with advanced AI features including ML forecasting, NLP chatbot, and MCP database integration.
 
 ## Development Commands
 
@@ -17,6 +17,10 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 # Install dependencies
 pip install -r requirements.txt
 
+# Initialize database (if needed)
+python populate_db.py  # Seeds sample products
+python populate_dummy_orders.py  # Adds sample orders for forecasting
+
 # Run the application
 python app.py
 ```
@@ -25,100 +29,94 @@ python app.py
 - **Local server**: `python app.py` (runs on http://localhost:5000)
 - **Debug mode**: Already enabled in app.py for development
 - **Database**: SQLite (energyrush.db) - automatically created on first run
+- **Timezone**: Asia/Colombo (UTC+05:30) configured throughout
 
 ## Architecture Overview
 
-### Backend Structure
+### Backend Components
 - **Framework**: Flask with SQLAlchemy ORM
-- **Database**: SQLite with two main models:
+- **Database Models**:
   - `Product`: Energy drink products with stock management
   - `Order`: Customer orders with JSON items storage
-- **AI Features**:
-  - ML forecasting using scikit-learn Linear Regression
-  - NLP chatbot using Hugging Face transformers (DistilBERT)
+  - `AdkChatHistory`: Stores AI chatbot interactions
+  - `AdkMemory`: Contextual memory for chatbot sessions
+- **AI/ML Integration**:
+  - **Forecasting**: scikit-learn (LinearRegression) + statsmodels (ETS, Exponential Smoothing)
+  - **Chatbot Systems**:
+    - Enhanced Chatbot with MCP integration (`enhanced_chatbot.py`)
+    - Gemini API integration for conversational AI (`gemini_integration.py`)
+    - ADK Bridge for intelligent query processing (`gemini_adk_bridge.py`)
+  - **NLP**: Hugging Face transformers (DistilBERT for Q&A)
 
 ### Frontend Structure
 - **Templates**: Jinja2 templates with Bootstrap 5
-- **Customer Pages**: Landing, About, Products, Cart, Checkout, Order Confirmation
-- **Admin Panel**: Dashboard, Products Management, Orders Management, Forecasting
-- **Styling**: Bootstrap 5 CDN + custom CSS for energy drink branding
+- **Customer Pages**: Landing, About, Products, Cart, Checkout (guest-only)
+- **Admin Panel** (`/admin`):
+  - Dashboard with visualizations
+  - Product CRUD operations
+  - Order management with status updates
+  - ML-powered 7-day sales forecasting
+  - Integrated AI chatbot (bottom-right corner)
 
 ### Key Features
 1. **Customer Experience**:
-   - Guest checkout only (no user registration required)
+   - Guest checkout only (no user registration)
    - Shopping cart with session storage
-   - Cash on delivery payment method
+   - Cash on delivery payment
    - Real-time stock checking
 
-2. **Admin Panel**:
-   - Product CRUD operations with image support
-   - Order management with status updates
-   - ML-powered 7-day sales forecasting
-   - AI chatbot for business queries (bottom-right corner)
+2. **Admin Intelligence**:
+   - ML forecasting with multiple models (Linear Regression, ETS, Exponential Smoothing)
+   - Multi-model chatbot system (MCP + Gemini + ADK Bridge)
+   - Data visualization with matplotlib
+   - Timezone-aware operations (Asia/Colombo)
 
-3. **AI/ML Components**:
-   - **Forecasting**: Uses pandas + scikit-learn for sales predictions
-   - **Chatbot**: Hugging Face transformers for natural language queries
-   - **Data Visualization**: matplotlib for forecast charts
+3. **Database Operations**:
+   - MCP database server support (`mcp_database_server.py`)
+   - Automated data generation (`data_generator.py`)
+   - Order verification utilities (`verify_orders.py`)
 
-### File Structure
-```
-├── app.py                 # Main Flask application
-├── requirements.txt       # Python dependencies
-├── templates/
-│   ├── base.html         # Customer site base template
-│   ├── index.html        # Landing page
-│   ├── about.html        # About page
-│   ├── products.html     # Product listing
-│   ├── cart.html         # Shopping cart
-│   ├── checkout.html     # Checkout form
-│   ├── order_confirmation.html
-│   └── admin/
-│       ├── base.html     # Admin panel base template
-│       ├── dashboard.html # Admin dashboard
-│       ├── products.html # Product management
-│       ├── add_product.html
-│       ├── edit_product.html
-│       ├── orders.html   # Order management
-│       └── forecasting.html # ML forecasting
-└── static/
-    ├── css/              # Custom stylesheets
-    ├── js/               # Custom JavaScript
-    └── charts/           # Generated forecast charts
+## Testing Commands
+
+```bash
+# Test chatbot systems
+python test_enhanced_chatbot.py
+python test_hybrid_chatbot.py
+python test_final_system.py
+python test_complete_system.py
+
+# Test forecasting models
+python test_theta_performance.py
+python debug_theta_model.py
+
+# Test order management
+python test_orders_management.py
 ```
 
-## Development Notes
-
-### Database
-- SQLite database is created automatically on first run
-- Sample products are seeded if database is empty
-- No migrations needed - SQLAlchemy handles schema creation
-
-### AI Features Setup
-- Hugging Face models download automatically on first use
-- Forecasting requires minimum 7 orders for meaningful predictions
-- Charts are generated in `static/charts/` directory
-
-### Admin Access
-- Access admin panel at `/admin`
-- No authentication implemented (local development focus)
-- Chatbot available via floating button in admin panel
-
-### Key Routes
-- **Customer**: `/`, `/about`, `/products`, `/cart`, `/checkout`
+## Key Routes
+- **Customer**: `/`, `/about`, `/products`, `/cart`, `/checkout`, `/order-confirmation`
 - **Admin**: `/admin`, `/admin/products`, `/admin/orders`, `/admin/forecasting`
-- **API**: `/admin/chatbot` (POST - for AI assistant)
+- **API Endpoints**:
+  - `/admin/chatbot` (POST) - AI assistant
+  - `/add_to_cart` (POST) - Cart management
+  - `/update_cart` (POST) - Update quantities
+  - `/remove_from_cart` (POST) - Remove items
 
-### Customization Guidelines
-- Product images: Use 300x300px for best display
-- Brand colors: Primary (purple gradient), Success (green), Warning (amber)
-- Modify sample products in `app.py` if needed
-- Admin panel expandable via `templates/admin/base.html`
+## Environment Variables
+Create a `.env` file with:
+```
+GEMINI_API_KEY=your_api_key_here
+```
 
-## Production Deployment Notes
+## Database Schema
+- Products table: id, name, description, price, stock, image_url, created_at
+- Orders table: id, customer_name, customer_phone, customer_address, total_amount, status, created_at, items (JSON)
+- AdkChatHistory: Tracks AI interactions with confirmation/execution states
+- AdkMemory: Maintains contextual memory across chat sessions
 
+## Production Considerations
 - Change `app.config['SECRET_KEY']` for production
-- Consider PostgreSQL for production database
 - Set `debug=False` in production
+- Consider PostgreSQL for production database
+- Implement admin authentication (currently no auth for local development)
 - Configure proper logging and error handling
-- Implement admin authentication for production use

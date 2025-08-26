@@ -38,8 +38,11 @@
 </head>
 <body class="font-['Inter'] bg-gray-50">
     <div class="flex h-screen overflow-hidden">
+        <!-- Mobile Sidebar Overlay -->
+        <div id="sidebar-overlay" class="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden hidden"></div>
+        
         <!-- Sidebar -->
-        <aside class="w-64 gradient-dark shadow-2xl flex flex-col">
+        <aside id="sidebar" class="w-64 gradient-dark shadow-2xl flex flex-col fixed lg:relative lg:translate-x-0 transform -translate-x-full transition-transform duration-300 ease-in-out z-50 lg:z-auto h-full">
             <!-- Logo -->
             <div class="p-6 border-b border-gray-700">
                 <div class="flex items-center space-x-3">
@@ -103,38 +106,70 @@
         </aside>
         
         <!-- Main Content Area -->
-        <div class="flex-1 flex flex-col overflow-hidden">
+        <div class="flex-1 flex flex-col overflow-hidden lg:ml-0">
             <!-- Top Bar -->
             <header class="bg-white shadow-sm border-b border-gray-200">
-                <div class="px-6 py-4 flex items-center justify-between">
+                <div class="px-4 lg:px-6 py-4 flex items-center justify-between">
                     <div class="flex items-center space-x-4">
                         <button onclick="toggleSidebar()" class="lg:hidden p-2 rounded-lg hover:bg-gray-100 transition-colors">
                             <i class="fas fa-bars text-gray-600"></i>
                         </button>
-                        <h1 class="text-2xl font-bold text-gray-800">
+                        <h1 class="text-xl lg:text-2xl font-bold text-gray-800">
                             {% block page_title %}Dashboard{% endblock %}
                         </h1>
                     </div>
                     
-                    <div class="flex items-center space-x-4">
+                    <div class="flex items-center space-x-2 lg:space-x-4">
                         <!-- Timezone Indicator -->
-                        <div class="hidden md:flex items-center space-x-2 text-sm text-gray-600 bg-gray-50 px-4 py-2 rounded-xl">
+                        <div class="hidden xl:flex items-center space-x-2 text-sm text-gray-600 bg-gray-50 px-4 py-2 rounded-xl">
                             <i class="fas fa-clock text-energy-primary"></i>
                             <div class="text-center">
                                 <div class="current-colombo-time font-semibold text-gray-800"></div>
                                 <div class="text-xs text-gray-500">{{ timezone_name }} ({{ timezone_offset }})</div>
                             </div>
                         </div>
-                        <!-- Notifications -->
-                        <button class="relative p-2 rounded-lg hover:bg-gray-100 transition-colors">
-                            <i class="fas fa-bell text-gray-600"></i>
-                            <span class="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-                        </button>
                         
-                        <!-- Settings -->
-                        <button class="p-2 rounded-lg hover:bg-gray-100 transition-colors">
-                            <i class="fas fa-cog text-gray-600"></i>
-                        </button>
+                        <!-- Mobile Action Menu -->
+                        <div class="flex lg:hidden">
+                            <div class="relative">
+                                <button onclick="toggleMobileMenu()" class="p-2 rounded-lg hover:bg-gray-100 transition-colors">
+                                    <i class="fas fa-ellipsis-v text-gray-600"></i>
+                                </button>
+                                <div id="mobile-menu" class="absolute right-0 top-12 bg-white rounded-lg shadow-lg border border-gray-200 py-2 hidden z-50 min-w-[160px]">
+                                    <a href="#" class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                                        <i class="fas fa-bell mr-2"></i>Notifications
+                                    </a>
+                                    <a href="#" class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                                        <i class="fas fa-cog mr-2"></i>Settings
+                                    </a>
+                                    <hr class="my-1">
+                                    <a href="{{ url_for('admin_logout') }}" class="flex items-center px-4 py-2 text-sm text-red-600 hover:bg-red-50">
+                                        <i class="fas fa-sign-out-alt mr-2"></i>Logout
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Desktop Actions -->
+                        <div class="hidden lg:flex items-center space-x-4">
+                            <!-- Notifications -->
+                            <button class="relative p-2 rounded-lg hover:bg-gray-100 transition-colors">
+                                <i class="fas fa-bell text-gray-600"></i>
+                                <span class="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+                            </button>
+                            
+                            <!-- Settings -->
+                            <button class="p-2 rounded-lg hover:bg-gray-100 transition-colors">
+                                <i class="fas fa-cog text-gray-600"></i>
+                            </button>
+                            
+                            <!-- Logout -->
+                            <a href="{{ url_for('admin_logout') }}" 
+                               class="p-2 rounded-lg hover:bg-red-50 hover:text-red-600 transition-colors"
+                               title="Logout">
+                                <i class="fas fa-sign-out-alt text-gray-600 hover:text-red-600"></i>
+                            </a>
+                        </div>
                         
                         <!-- Current Time -->
                         <div class="hidden md:block text-sm text-gray-500">
@@ -146,7 +181,7 @@
             </header>
             
             <!-- Main Content -->
-            <main class="flex-1 overflow-y-auto bg-gray-50 p-6">
+            <main class="flex-1 overflow-y-auto bg-gray-50 p-4 lg:p-6">
                 <!-- Flash Messages -->
                 {% with messages = get_flashed_messages(with_categories=true) %}
                     {% if messages %}
@@ -175,12 +210,12 @@
     </div>
     
     <!-- Chatbot Button -->
-    <button onclick="toggleChatbot()" class="fixed bottom-6 right-6 w-14 h-14 bg-gradient-to-r from-energy-primary to-energy-secondary rounded-full shadow-lg hover:shadow-xl transform hover:scale-110 transition-all duration-300 z-50 flex items-center justify-center group">
-        <i class="fas fa-robot text-white text-xl group-hover:animate-bounce"></i>
+    <button onclick="toggleChatbot()" class="fixed bottom-4 lg:bottom-6 right-4 lg:right-6 w-12 h-12 lg:w-14 lg:h-14 bg-gradient-to-r from-energy-primary to-energy-secondary rounded-full shadow-lg hover:shadow-xl transform hover:scale-110 transition-all duration-300 z-50 flex items-center justify-center group">
+        <i class="fas fa-robot text-white text-lg lg:text-xl group-hover:animate-bounce"></i>
     </button>
     
     <!-- Chatbot Window -->
-    <div id="chatbot-window" class="fixed bottom-24 right-6 w-96 h-[500px] bg-white rounded-2xl shadow-2xl hidden z-50 flex flex-col overflow-hidden">
+    <div id="chatbot-window" class="fixed bottom-24 right-4 lg:right-6 w-[calc(100vw-2rem)] max-w-96 h-[500px] max-h-[70vh] bg-white rounded-2xl shadow-2xl hidden z-50 flex flex-col overflow-hidden">
         <div class="gradient-energy p-4 text-white">
             <div class="flex items-center justify-between">
                 <div class="flex items-center space-x-3">
@@ -208,12 +243,12 @@
             </div>
         </div>
         
-        <form id="chat-form" class="p-4 border-t border-gray-200">
+        <form id="chat-form" class="p-3 lg:p-4 border-t border-gray-200">
             <div class="flex space-x-2">
                 <input type="text" id="chat-input" placeholder="Type your message..." 
-                       class="flex-1 px-4 py-2 border-2 border-gray-200 rounded-xl focus:border-energy-primary focus:outline-none transition-colors">
-                <button type="submit" class="px-4 py-2 gradient-energy text-white rounded-xl hover:shadow-lg transition-all duration-300">
-                    <i class="fas fa-paper-plane"></i>
+                       class="flex-1 px-3 lg:px-4 py-2 text-sm lg:text-base border-2 border-gray-200 rounded-xl focus:border-energy-primary focus:outline-none transition-colors">
+                <button type="submit" class="px-3 lg:px-4 py-2 gradient-energy text-white rounded-xl hover:shadow-lg transition-all duration-300">
+                    <i class="fas fa-paper-plane text-sm lg:text-base"></i>
                 </button>
             </div>
         </form>
@@ -382,6 +417,31 @@
             .chatbot-response h2 {
                 font-size: 14px;
             }
+            
+            #chatbot-window {
+                bottom: 16px !important;
+                right: 8px !important;
+                left: 8px !important;
+                width: calc(100vw - 16px) !important;
+                max-width: none !important;
+                height: calc(100vh - 120px) !important;
+                max-height: none !important;
+            }
+            
+            #chatbot-window .gradient-energy {
+                padding: 12px;
+            }
+            
+            #chat-messages {
+                padding: 12px;
+            }
+        }
+        
+        /* Mobile sidebar adjustments */
+        @media (max-width: 1024px) {
+            #sidebar {
+                width: 280px;
+            }
         }
     </style>
     
@@ -539,6 +599,35 @@
             return div.innerHTML;
         }
         
+        // Mobile functionality
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebar-overlay');
+            
+            sidebar.classList.toggle('-translate-x-full');
+            overlay.classList.toggle('hidden');
+        }
+        
+        function toggleMobileMenu() {
+            const menu = document.getElementById('mobile-menu');
+            menu.classList.toggle('hidden');
+        }
+        
+        // Close mobile menu when clicking outside
+        document.addEventListener('click', function(event) {
+            const menu = document.getElementById('mobile-menu');
+            const button = event.target.closest('button[onclick="toggleMobileMenu()"]');
+            
+            if (!button && !menu.contains(event.target)) {
+                menu.classList.add('hidden');
+            }
+        });
+        
+        // Close sidebar when clicking overlay
+        document.getElementById('sidebar-overlay').addEventListener('click', function() {
+            toggleSidebar();
+        });
+
         // Toggle chatbot
         function toggleChatbot() {
             const chatbot = document.getElementById('chatbot-window');

@@ -61,6 +61,33 @@ local_settings.py
 db.sqlite3
 db.sqlite3-journal
 
+# EnergyRush specific
+# Keep the database for production
+!energyrush.db
+
+# Test scripts and generated files
+test_*.py
+*test*.py
+generate_*.py
+clear_and_populate_orders.py
+debug_*.py
+verify_orders.py
+populate_dummy_orders.py
+
+# Generated charts and images
+static/charts/*.png
+static/charts/*.jpg
+static/charts/*.jpeg
+
+# macOS system files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
 # Flask stuff:
 instance/
 .webassets-cache

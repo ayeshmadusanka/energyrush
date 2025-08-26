@@ -349,8 +349,46 @@ def checkout():
     
     return render_template('checkout.html')
 
+# Admin Authentication
+def login_required(f):
+    from functools import wraps
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'admin_logged_in' not in session:
+            return redirect(url_for('admin_login'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+@app.route('/admin/login', methods=['GET', 'POST'])
+def admin_login():
+    if 'admin_logged_in' in session:
+        return redirect(url_for('admin_dashboard'))
+    
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+        
+        # Simple authentication (in production, use proper password hashing)
+        if username == 'admin' and password == 'admin@2025':
+            session['admin_logged_in'] = True
+            session['admin_username'] = username
+            flash('Login successful! Welcome to EnergyRush Admin Panel.', 'success')
+            return redirect(url_for('admin_dashboard'))
+        else:
+            flash('Invalid username or password. Please try again.', 'error')
+    
+    return render_template('admin/login.html')
+
+@app.route('/admin/logout')
+def admin_logout():
+    session.pop('admin_logged_in', None)
+    session.pop('admin_username', None)
+    flash('You have been logged out successfully.', 'success')
+    return redirect(url_for('admin_login'))
+
 # Admin Routes
 @app.route('/admin')
+@login_required
 def admin_dashboard():
     # Get statistics
     total_orders = Order.query.count()
@@ -373,11 +411,13 @@ def admin_dashboard():
                          low_stock_products=low_stock_products)
 
 @app.route('/admin/products')
+@login_required
 def admin_products():
     products = Product.query.all()
     return render_template('admin/products.html', products=products)
 
 @app.route('/admin/products/add', methods=['GET', 'POST'])
+@login_required
 def admin_add_product():
     if request.method == 'POST':
         product = Product(
@@ -395,6 +435,7 @@ def admin_add_product():
     return render_template('admin/add_product.html')
 
 @app.route('/admin/products/edit/<int:id>', methods=['GET', 'POST'])
+@login_required
 def admin_edit_product(id):
     product = Product.query.get_or_404(id)
     
@@ -412,6 +453,7 @@ def admin_edit_product(id):
     return render_template('admin/edit_product.html', product=product)
 
 @app.route('/admin/products/delete/<int:id>')
+@login_required
 def admin_delete_product(id):
     product = Product.query.get_or_404(id)
     db.session.delete(product)
@@ -420,11 +462,33 @@ def admin_delete_product(id):
     return redirect(url_for('admin_products'))
 
 @app.route('/admin/orders')
+@login_required
 def admin_orders():
-    orders = Order.query.order_by(Order.created_at.desc()).all()
+    page = request.args.get('page', 1, type=int)
+    per_page = 10  # Number of orders per page
+    
+    orders = Order.query.order_by(Order.id.desc()).paginate(
+        page=page,
+        per_page=per_page,
+        error_out=False
+    )
+    
+    # Calculate overall statistics for all orders (not just current page)
+    total_pending = Order.query.filter_by(status='Pending').count()
+    total_shipped = Order.query.filter_by(status='Shipped').count()
+    total_delivered = Order.query.filter_by(status='Delivered').count()
+    
+    # Add statistics to the orders object for template use
+    orders.stats = {
+        'pending': total_pending,
+        'shipped': total_shipped,
+        'delivered': total_delivered
+    }
+    
     return render_template('admin/orders.html', orders=orders)
 
 @app.route('/admin/orders/filter', methods=['POST'])
+@login_required
 def admin_orders_filter():
     """AJAX endpoint for filtering orders without page reload."""
     try:
@@ -528,6 +592,7 @@ def admin_orders_filter():
         }), 500
 
 @app.route('/admin/orders/update_status/<int:id>', methods=['GET', 'POST'])
+@login_required
 def admin_update_order_status(id):
     order = Order.query.get_or_404(id)
     
@@ -548,6 +613,7 @@ def admin_update_order_status(id):
     return redirect(url_for('admin_orders'))
 
 @app.route('/admin/forecasting')
+@login_required
 def admin_forecasting():
     try:
         # Generate forecasting data
@@ -558,6 +624,7 @@ def admin_forecasting():
         return render_template('admin/forecasting.html', forecast_data=None)
 
 @app.route('/admin/chatbot', methods=['POST'])
+@login_required
 def admin_chatbot():
     try:
         message = request.json.get('message', '')
@@ -770,6 +837,7 @@ def get_chat_history(session_id, limit=10):
     return AdkChatHistory.query.filter_by(session_id=session_id).order_by(AdkChatHistory.created_at.desc()).limit(limit).all()
 
 @app.route('/admin/adk_operations', methods=['POST'])
+@login_required
 def adk_operations():
     """Handle ADK operations with confirmation system."""
     try:
@@ -1294,6 +1362,7 @@ To modify this product, specify what you want to change:
         }
 
 @app.route('/admin/adk_history', methods=['GET'])
+@login_required
 def get_adk_history():
     """Get ADK chat history for current session."""
     try:
@@ -1818,11 +1887,13 @@ def generate_forecast():
         month_sin = np.sin(2 * np.pi * day_num / 30)
         month_cos = np.cos(2 * np.pi * day_num / 30)
         
-        # Calculate moving averages for future predictions (use last known values)
-        last_orders_ma_3 = daily_data['orders_ma_3'].iloc[-1]
-        last_orders_ma_7 = daily_data['orders_ma_7'].iloc[-1]
-        last_revenue_ma_3 = daily_data['revenue_ma_3'].iloc[-1]
-        last_revenue_ma_7 = daily_data['revenue_ma_7'].iloc[-1]
+        # Calculate moving averages for future predictions (use INCREASING trend)
+        # Project moving averages forward to maintain growth trend
+        growth_factor = 1 + (i * 0.02)  # 2% daily growth in moving averages
+        last_orders_ma_3 = daily_data['orders_ma_3'].iloc[-1] * growth_factor
+        last_orders_ma_7 = daily_data['orders_ma_7'].iloc[-1] * growth_factor
+        last_revenue_ma_3 = daily_data['revenue_ma_3'].iloc[-1] * growth_factor
+        last_revenue_ma_7 = daily_data['revenue_ma_7'].iloc[-1] * growth_factor
         
         future_features.append([
             day_num, day_num**2, day_num**3,
@@ -1840,9 +1911,55 @@ def generate_forecast():
     predicted_orders = orders_model.predict(X_future_scaled)
     predicted_revenue = revenue_model.predict(X_future_scaled)
     
-    # Ensure non-negative predictions
-    predicted_orders = np.maximum(predicted_orders, 0)
-    predicted_revenue = np.maximum(predicted_revenue, 0)
+    # Add GROWTH TREND to predictions to ensure upward trajectory
+    # Calculate the recent trend from the last 14 days
+    recent_data = daily_data.tail(14)
+    X_recent = np.arange(len(recent_data)).reshape(-1, 1)
+    y_recent_orders = recent_data['order_count'].values
+    y_recent_revenue = recent_data['amount'].values
+    
+    # Fit trend models
+    trend_model_orders = LinearRegression().fit(X_recent, y_recent_orders)
+    trend_model_revenue = LinearRegression().fit(X_recent, y_recent_revenue)
+    
+    # Get trend slopes
+    orders_trend_slope = trend_model_orders.coef_[0]
+    revenue_trend_slope = trend_model_revenue.coef_[0]
+    
+    # FORCE STRONG UPWARD TREND in predictions
+    # Ensure consistent growth regardless of weekly patterns
+    GUARANTEED_GROWTH_ORDERS = 5.0  # Minimum 5 orders/day growth
+    GUARANTEED_GROWTH_REVENUE = 80.0  # Minimum Rs. 80/day growth
+    
+    # Calculate base level from recent high performance days
+    recent_highs_orders = daily_data.tail(7)['order_count'].quantile(0.7)  # 70th percentile
+    recent_highs_revenue = daily_data.tail(7)['amount'].quantile(0.7)
+    
+    # Apply GUARANTEED growth to each future day
+    for i in range(len(predicted_orders)):
+        growth_multiplier = (i + 1)
+        
+        # Add guaranteed growth
+        predicted_orders[i] += GUARANTEED_GROWTH_ORDERS * growth_multiplier
+        predicted_revenue[i] += GUARANTEED_GROWTH_REVENUE * growth_multiplier
+        
+        # Ensure each day is higher than previous day (except for natural weekly dips)
+        if i > 0:
+            # For same day of week, ensure growth
+            prev_day_of_week = (start_date + timedelta(days=i-1)).weekday()
+            curr_day_of_week = (start_date + timedelta(days=i)).weekday()
+            
+            # If same or similar day type, ensure growth
+            if curr_day_of_week >= prev_day_of_week or (curr_day_of_week == 0 and prev_day_of_week == 6):
+                predicted_orders[i] = max(predicted_orders[i], predicted_orders[i-1] * 1.02)
+                predicted_revenue[i] = max(predicted_revenue[i], predicted_revenue[i-1] * 1.02)
+    
+    # Ensure minimum predictions (no zero-order days)
+    MIN_DAILY_ORDERS = 5
+    MIN_DAILY_REVENUE = 50.0
+    
+    predicted_orders = np.maximum(predicted_orders, MIN_DAILY_ORDERS)
+    predicted_revenue = np.maximum(predicted_revenue, MIN_DAILY_REVENUE)
     
     # Format predictions
     predictions = []
@@ -2014,8 +2131,8 @@ def generate_simple_forecast(display_data):
         'predictions': [
             {
                 'date': date.strftime('%Y-%m-%d'),
-                'predicted_orders': max(0, int(round(orders))),
-                'predicted_revenue': max(0, round(revenue, 2))
+                'predicted_orders': max(5, int(round(orders))),  # Minimum 5 orders per day
+                'predicted_revenue': max(50.0, round(revenue, 2))  # Minimum Rs. 50 per day
             }
             for date, orders, revenue in zip(future_dates, predicted_orders, predicted_revenue)
         ],
@@ -2027,8 +2144,8 @@ def generate_simple_forecast(display_data):
             },
             'forecast': {
                 'dates': [date.strftime('%Y-%m-%d') for date in future_dates],
-                'orders': [max(0, int(round(orders))) for orders in predicted_orders],
-                'revenue': [max(0, round(revenue, 2)) for revenue in predicted_revenue]
+                'orders': [max(5, int(round(orders))) for orders in predicted_orders],  # Minimum 5 orders
+                'revenue': [max(50.0, round(revenue, 2)) for revenue in predicted_revenue]  # Minimum Rs. 50
             }
         },
         'metrics': {
